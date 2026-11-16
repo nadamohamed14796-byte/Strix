@@ -329,7 +329,16 @@ async def run_strix_scan(
                 skills=skills,
             )
 
+        target_append_lock = asyncio.Lock()
+
         async def append_live_targets(target_infos: list[dict[str, Any]]) -> dict[str, Any]:
+            """Serialize live scope updates so concurrent additions cannot overwrite each other."""
+            async with target_append_lock:
+                return await _append_live_targets_locked(target_infos)
+
+        async def _append_live_targets_locked(
+            target_infos: list[dict[str, Any]],
+        ) -> dict[str, Any]:
             """Add newly authorized web/IP targets without restarting this scan."""
             unsupported = [
                 str(target.get("type", "unknown"))
