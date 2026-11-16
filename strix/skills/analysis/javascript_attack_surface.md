@@ -1,5 +1,5 @@
 ---
-name: javascript-attack-surface
+name: javascript_attack_surface
 description: Deep JavaScript asset analysis for API contracts, security-sensitive functions, authorization boundaries, and evidence-backed test hypotheses
 ---
 
