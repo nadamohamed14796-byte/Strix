@@ -296,6 +296,14 @@ def test_javascript_asset_analysis_skill_loads_and_requires_complete_coverage() 
     assert "resume from unfinished entries" in body.lower() or "resume only unfinished entries" in body.lower()
 
 
+
+def test_root_prompt_keeps_javascript_analysis_non_blocking() -> None:
+    prompt = render_system_prompt(scan_mode="standard", is_root=True)
+    assert "Do NOT block unrelated work waiting for the analyst" in prompt
+    assert "Continue targeted validation in parallel" in prompt
+    assert "overall scan may finish only after" in prompt
+
+
 def test_skill_turn_limit_matches_bare_and_qualified_names(tmp_path: Path) -> None:
     _write_skill(tmp_path, "pr_review", "investigator", "---\nname: investigator\n---\nx")
     _write_skill(tmp_path, "pr_review", "validator", "---\nname: validator\n---\nx")
