@@ -196,7 +196,10 @@ async def record_javascript_assets(
     if invalid:
         return json.dumps({
             "success": False,
-            "error": "Batch rejected; every entry must be an absolute HTTP(S) URL without embedded credentials",
+            "error": (
+                "Batch rejected; every entry must be an absolute HTTP(S) URL "
+                "without embedded credentials"
+            ),
             "invalid_count": len(invalid),
             "invalid_preview": invalid[:10],
         })
