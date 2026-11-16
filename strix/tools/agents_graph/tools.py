@@ -596,6 +596,7 @@ async def agent_finish(
     success: bool = True,
     report_to_parent: bool = True,
     final_recommendations: list[str] | None = None,
+    target_outcomes: list[dict[str, str]] | None = None,
 ) -> str:
     """Subagent termination — post a completion report to the parent.
 
@@ -632,6 +633,8 @@ async def agent_finish(
         final_recommendations: Optional next-step suggestions for the
             parent (e.g., "prioritize testing X", "spawn an agent to
             cover Y").
+        target_outcomes: For Recon workers, exactly one {target_id, status, summary}
+            record per assigned target. Status must be "complete" or "blocked".
     """
     inner = _ctx(ctx)
     coordinator = coordinator_from_context(inner)
@@ -652,6 +655,22 @@ async def agent_finish(
                     "agent_finish is for subagents. Root/main agents must call finish_scan instead"
                 ),
             },
+            ensure_ascii=False,
+            default=str,
+        )
+
+    if coordinator.target_ledger and await coordinator.phase_for(me) == "recon":
+        try:
+            await coordinator.record_target_outcomes(me, list(target_outcomes or []))
+        except ValueError as exc:
+            return json.dumps(
+                {"success": False, "error": str(exc), "agent_completed": False},
+                ensure_ascii=False,
+                default=str,
+            )
+    elif target_outcomes:
+        return json.dumps(
+            {"success": False, "error": "target_outcomes are only accepted from Recon workers"},
             ensure_ascii=False,
             default=str,
         )
