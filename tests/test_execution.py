@@ -1443,6 +1443,13 @@ async def test_target_ledger_requires_exact_recon_outcomes_before_phase_transiti
     assert result["scan_phase"] == "testing"
     assert coordinator.target_ledger["target-a"]["status"] == "recon_complete"
     assert coordinator.target_ledger["target-b"]["status"] == "blocked"
+    await coordinator.register(
+        "testing-a", "Testing A", parent_id="root", phase="testing", target_ids=["target-a"]
+    )
+    with pytest.raises(ValueError, match="without completed Recon"):
+        await coordinator.register(
+            "testing-b", "Testing B", parent_id="root", phase="testing", target_ids=["target-b"]
+        )
 
 
 @pytest.mark.asyncio
