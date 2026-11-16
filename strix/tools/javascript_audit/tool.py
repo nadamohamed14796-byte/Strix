@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 from urllib.parse import urlsplit
 
 from agents import RunContextWrapper, function_tool
@@ -73,9 +73,7 @@ async def record_javascript_asset(  # noqa: PLR0911 - early returns preserve cle
     """
     parsed = urlsplit(asset_url.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return json.dumps(
-            {"success": False, "error": "asset_url must be an absolute HTTP(S) URL"}
-        )
+        return json.dumps({"success": False, "error": "asset_url must be an absolute HTTP(S) URL"})
     if parsed.username or parsed.password:
         return json.dumps({"success": False, "error": "Credentials are not allowed in asset_url"})
     if status not in _VALID_STATUSES:
@@ -83,8 +81,7 @@ async def record_javascript_asset(  # noqa: PLR0911 - early returns preserve cle
     if status in {"failed", "skipped"} and not reason.strip():
         return json.dumps({"success": False, "error": "failed/skipped status requires a reason"})
     if content_sha256 and (
-        len(content_sha256) != 64
-        or any(c not in "0123456789abcdefABCDEF" for c in content_sha256)
+        len(content_sha256) != 64 or any(c not in "0123456789abcdefABCDEF" for c in content_sha256)
     ):
         return json.dumps(
             {"success": False, "error": "content_sha256 must be a 64-character hex digest"}
@@ -109,9 +106,7 @@ async def record_javascript_asset(  # noqa: PLR0911 - early returns preserve cle
                     reason.strip()
                     or (previous.get("reason", "") if status in {"failed", "skipped"} else "")
                 )[:4000],
-                "content_sha256": (
-                    content_sha256.lower() or previous.get("content_sha256", "")
-                ),
+                "content_sha256": (content_sha256.lower() or previous.get("content_sha256", "")),
                 "sources": previous.get("sources", []),
             }
             assets[key] = entry
@@ -176,14 +171,16 @@ async def record_javascript_assets(
     if not asset_urls:
         return json.dumps({"success": True, "recorded": 0, "tracked_assets": 0})
     if len(asset_urls) > 5000:
-        return json.dumps({
-            "success": False,
-            "error": "Maximum 5000 URLs per batch; split the inventory into smaller batches",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Maximum 5000 URLs per batch; split the inventory into smaller batches",
+            }
+        )
     source = source.strip()[:200] or "unspecified"
     normalized: list[str] = []
     invalid: list[str] = []
-    for value in asset_urls:
+    for value in cast("list[Any]", asset_urls):
         if not isinstance(value, str):
             invalid.append(str(value)[:300])
             continue
@@ -199,21 +196,25 @@ async def record_javascript_assets(
             continue
         normalized.append(url)
     if invalid:
-        return json.dumps({
-            "success": False,
-            "error": (
-                "Batch rejected; every entry must be an absolute HTTP(S) URL "
-                "without embedded credentials"
-            ),
-            "invalid_count": len(invalid),
-            "invalid_preview": invalid[:10],
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": (
+                    "Batch rejected; every entry must be an absolute HTTP(S) URL "
+                    "without embedded credentials"
+                ),
+                "invalid_count": len(invalid),
+                "invalid_preview": invalid[:10],
+            }
+        )
     path = _ledger_path()
     if path is None:
-        return json.dumps({
-            "success": False,
-            "error": "Scan report state is unavailable; inventory was not recorded",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Scan report state is unavailable; inventory was not recorded",
+            }
+        )
     unique_urls = list(dict.fromkeys(normalized))
     async with _LOCK:
         try:
@@ -223,17 +224,22 @@ async def record_javascript_assets(
             _save(path, data)
         except (OSError, RuntimeError, TypeError) as exc:
             logger.exception("Failed to bulk-import JavaScript assets")
-            return json.dumps({
-                "success": False,
-                "error": f"Could not persist JavaScript inventory: {exc}",
-            })
-    return json.dumps({
-        "success": True,
-        "recorded": len(unique_urls),
-        "duplicates_in_batch": len(normalized) - len(unique_urls),
-        "tracked_assets": len(assets),
-        "inventory_complete": False,
-    }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": f"Could not persist JavaScript inventory: {exc}",
+                }
+            )
+    return json.dumps(
+        {
+            "success": True,
+            "recorded": len(unique_urls),
+            "duplicates_in_batch": len(normalized) - len(unique_urls),
+            "tracked_assets": len(assets),
+            "inventory_complete": False,
+        },
+        ensure_ascii=False,
+    )
 
 
 @function_tool(timeout=30)
@@ -246,10 +252,12 @@ async def complete_javascript_inventory(ctx: RunContextWrapper) -> str:
     """
     context = ctx.context if isinstance(ctx.context, dict) else {}
     if context.get("parent_id") is not None:
-        return json.dumps({
-            "success": False,
-            "error": "Only the root agent may close JavaScript inventory",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Only the root agent may close JavaScript inventory",
+            }
+        )
     path = _ledger_path()
     if path is None:
         return json.dumps({"success": False, "error": "Scan report state is unavailable"})
@@ -263,11 +271,13 @@ async def complete_javascript_inventory(ctx: RunContextWrapper) -> str:
             return json.dumps(
                 {"success": False, "error": f"Could not persist inventory completion: {exc}"}
             )
-    return json.dumps({
-        "success": True,
-        "inventory_complete": True,
-        "tracked_assets": len(data["assets"]),
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "inventory_complete": True,
+            "tracked_assets": len(data["assets"]),
+        }
+    )
 
 
 @function_tool(timeout=30)
@@ -275,18 +285,22 @@ async def get_javascript_audit_status() -> str:
     """Read the current per-scan JavaScript inventory and audit coverage summary."""
     path = _ledger_path()
     if path is None:
-        return json.dumps({
-            "success": False,
-            "error": "Scan report state is unavailable",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Scan report state is unavailable",
+            }
+        )
     try:
         status = javascript_audit_status(path.parent)
     except (OSError, RuntimeError, TypeError) as exc:
         logger.exception("Unable to read JavaScript audit status")
-        return json.dumps({
-            "success": False,
-            "error": f"JavaScript audit ledger could not be read: {exc}",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": f"JavaScript audit ledger could not be read: {exc}",
+            }
+        )
     return json.dumps({"success": True, **status}, ensure_ascii=False)
 
 
@@ -304,8 +318,10 @@ def javascript_audit_status(run_dir: Path) -> dict[str, Any]:
     data = _load(path)
     assets = data["assets"]
     pending = [
-        url for url, item in assets.items()
-        if not isinstance(item, dict) or item.get("status") not in {"analyzed", "failed", "skipped"}
+        url
+        for url, item in assets.items()
+        if not isinstance(item, dict)
+        or item.get("status") not in {"analyzed", "failed", "skipped"}
         or (item.get("status") in {"failed", "skipped"} and not str(item.get("reason", "")).strip())
     ]
     terminal = [
