@@ -169,6 +169,7 @@ def test_finish_scan_allows_no_js_ledger_and_closed_inventory(tmp_path, monkeypa
     assert result_with_terminal_gap["javascript_assets_audited"] == 1
     assert result_with_terminal_gap["javascript_audit_gaps"][0]["status"] == "failed"
 
+
 def test_repeated_discovery_does_not_downgrade_analyzed_unchanged_asset():
     data = {
         "version": 1,
