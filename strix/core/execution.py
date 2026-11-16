@@ -350,6 +350,8 @@ async def spawn_child_agent(
         "agent_id": child_id,
         "name": name,
         "parent_id": parent_id,
+        "phase": phase,
+        "target_ids": list(target_ids or []),
         "message": f"Spawned '{name}' ({child_id}) running in parallel.",
     }
 
