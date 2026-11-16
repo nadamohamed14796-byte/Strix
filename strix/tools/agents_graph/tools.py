@@ -669,7 +669,11 @@ async def agent_finish(
             default=str,
         )
 
-    if coordinator.target_ledger and await coordinator.phase_for(me) == "recon":
+    if (
+        coordinator.target_ledger
+        and await coordinator.phase_for(me) == "recon"
+        and coordinator.metadata.get(me, {}).get("target_ids")
+    ):
         try:
             await coordinator.record_target_outcomes(me, list(target_outcomes or []))
         except ValueError as exc:
