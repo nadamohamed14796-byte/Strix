@@ -250,3 +250,16 @@ Do not use a fixed encoding checklist. Discover the target's actual transformati
 10. **Report limits honestly.** Include the observed transformation chain and order, tested hypotheses, successful and failed representations, source/sink evidence, browser proof, and unknowns. Never claim exhaustive encoding coverage.
 
 The objective is to infer the application's real canonicalization and parsing behavior—not to maximize payload count or blindly bypass filters. Keep the source-to-sink and browser-execution requirements in the XSS validation gate intact.
+
+
+## Verified Working Payload Output
+
+The final result of a successful XSS validation must prominently include the exact payload that was actually transmitted and then verified in the browser. Do not stop at describing the encoding or WAF behavior.
+
+- Return the exact transmitted payload in a dedicated `verified_working_payload` field and a copyable code block. Preserve exact casing, percent/hex/entity/Unicode encoding, escaping, and whitespace.
+- State the HTTP method, input parameter/source, content type, affected route/state, and any required storage or navigation steps in `payload_delivery_context`.
+- State the harmless browser marker and observed execution result in `payload_execution_result`.
+- Show the original input and the evidence-backed transformation chain separately from the final payload.
+- The final payload must match captured request evidence byte-for-byte and must be the same variant that triggered the harmless browser marker. Never reconstruct it from a response or infer it from a source-code path.
+- If multiple variants are verified, report each with its own route and evidence, and identify the primary reproducible one.
+- If none is verified, say exactly that no verified working XSS payload was found. Keep any promising candidate clearly marked unverified; never claim success based on reflection, a WAF response, or an HTTP status.
