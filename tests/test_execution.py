@@ -23,7 +23,7 @@ from strix.core.execution import (
 )
 from strix.core.sessions import seed_initial_input
 from strix.tools.agents_graph.tools import agent_finish, create_agent, stop_agent
-from strix.tools.finish.tool import finish_scan
+from strix.tools.finish.tool import _target_phase_finish_error, finish_scan
 
 
 _NO_STREAM_EVENTS: list[Any] = []
@@ -1678,3 +1678,46 @@ async def test_create_agent_requires_target_ids_and_root_owned_recon_batches() -
     assert delegated["success"] is False
     assert "Recon workers cannot delegate" in delegated["error"]
     assert len(spawned) == 1
+
+
+@pytest.mark.asyncio
+async def test_finish_scan_requires_recon_coverage_and_global_testing_gate() -> None:
+    coordinator = AgentCoordinator()
+    ledger = [
+        {
+            "target_id": "target-a",
+            "type": "web_application",
+            "value": "https://a.example",
+            "workspace_path": "",
+        }
+    ]
+    await coordinator.initialize_target_ledger(ledger)
+    await coordinator.register("root", "Root", parent_id=None)
+
+    unresolved = await _target_phase_finish_error(coordinator)
+    assert unresolved is not None
+    assert unresolved["unreconciled_target_ids"] == ["target-a"]
+
+    await coordinator.register(
+        "recon-a",
+        "Recon A",
+        parent_id="root",
+        phase="recon",
+        target_ids=["target-a"],
+    )
+    await coordinator.record_target_outcomes(
+        "recon-a",
+        [{"target_id": "target-a", "status": "complete", "summary": "Surface inventoried"}],
+    )
+    await coordinator.set_status("recon-a", "completed")
+
+    before_testing = await _target_phase_finish_error(coordinator)
+    assert before_testing is not None
+    assert "global Testing phase" in before_testing["error"]
+
+    await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="Every seed target has a completed Recon outcome.",
+    )
+    assert await _target_phase_finish_error(coordinator) is None
