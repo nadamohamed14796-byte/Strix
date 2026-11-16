@@ -1524,3 +1524,42 @@ async def test_target_ledger_survives_resume_and_rejects_scope_drift() -> None:
                 },
             ]
         )
+
+
+@pytest.mark.asyncio
+async def test_spawn_child_agent_includes_assigned_target_ids_in_task(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Any,
+) -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.initialize_target_ledger(
+        [{"target_id": "target-a", "type": "web_application", "value": "https://a.example"}]
+    )
+    await coordinator.register("root", "Root", parent_id=None)
+    captured: dict[str, Any] = {}
+
+    async def _start(**kwargs: Any) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(execution, "_start_child_runner", _start)
+    result = await execution.spawn_child_agent(
+        coordinator=coordinator,
+        factory=lambda **_kwargs: object(),
+        agents_db_path=tmp_path / "agents.db",
+        sessions_to_close=[],
+        run_config=cast("Any", None),
+        max_turns=5,
+        interactive=False,
+        parent_ctx={"agent_id": "root"},
+        name="Recon Worker",
+        task="Inventory the assigned authorized target.",
+        skills=[],
+        parent_history=[],
+        phase="recon",
+        target_ids=["target-a"],
+    )
+
+    child_id = result["agent_id"]
+    assert "target-a" in coordinator.metadata[child_id]["task"]
+    assert "Return one Recon outcome for each ID." in coordinator.metadata[child_id]["task"]
+    assert "target-a" in captured["task"]
