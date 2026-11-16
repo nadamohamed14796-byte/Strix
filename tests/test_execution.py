@@ -1526,18 +1526,8 @@ async def test_target_ledger_survives_resume_and_rejects_scope_drift() -> None:
     assert restored.target_ledger["target-a"]["status"] == "recon_complete"
     assert restored.target_ledger["target-a"]["attempts"] == 1
 
-    with pytest.raises(ValueError, match="authorized target set changed"):
-        await restored.initialize_target_ledger(
-            [
-                *ledger,
-                {
-                    "target_id": "target-b",
-                    "type": "web_application",
-                    "value": "https://b.example",
-                    "workspace_path": "",
-                },
-            ]
-        )
+    with pytest.raises(ValueError, match="refusing to remove prior scope"):
+        await restored.initialize_target_ledger([])
 
 
 @pytest.mark.asyncio
