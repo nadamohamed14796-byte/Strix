@@ -339,7 +339,6 @@ async def test_start_rejects_concurrent_and_repeated_submissions() -> None:
         await controller.handle("setup.start", {})
 
 
-
 @pytest.mark.asyncio
 async def test_live_target_command_appends_to_active_recon_scope() -> None:
     class Coordinator:
