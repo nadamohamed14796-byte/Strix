@@ -86,8 +86,8 @@ class AgentCoordinator:
     ) -> dict[str, Any]:
         """Open Testing only after root reconciliation and completed Recon workers."""
         async with self._lock:
-            if self.parent_of.get(agent_id) is not None:
-                raise ValueError("Only the root agent may advance the scan-wide phase")
+            if agent_id not in self.statuses or self.parent_of.get(agent_id) is not None:
+                raise ValueError("Only a registered root agent may advance the scan-wide phase")
             if self.scan_phase != "recon":
                 raise ValueError(f"Cannot advance from scan phase {self.scan_phase!r}")
             if not confirmed_all_targets_reconciled or not reconciliation_summary.strip():
