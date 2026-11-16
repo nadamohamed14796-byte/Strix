@@ -113,6 +113,7 @@ async def view_agent_graph(ctx: RunContextWrapper) -> str:
         {
             "success": True,
             "graph_structure": "\n".join(lines) or "(no agents)",
+            "scan_phase": coordinator.scan_phase,
             "summary": summary,
         },
         ensure_ascii=False,
@@ -404,6 +405,36 @@ async def wait_for_agents(  # noqa: PLR0911
     )
 
 
+@function_tool(timeout=30)
+async def advance_scan_phase(
+    ctx: RunContextWrapper,
+    confirmed_all_targets_reconciled: bool,
+    reconciliation_summary: str,
+) -> str:
+    """Root-only gate: transition the whole scan from Recon to Testing.
+
+    Call only after the complete supplied target set has a reconciled Recon
+    outcome. Runtime also verifies every registered Recon worker is completed.
+    """
+    inner = _ctx(ctx)
+    coordinator = coordinator_from_context(inner)
+    me = inner.get("agent_id")
+    if coordinator is None or not isinstance(me, str):
+        return json.dumps(
+            {"success": False, "error": "Agent coordinator or agent_id missing"},
+            ensure_ascii=False,
+        )
+    try:
+        result = await coordinator.advance_scan_phase(
+            me,
+            confirmed_all_targets_reconciled=confirmed_all_targets_reconciled,
+            reconciliation_summary=reconciliation_summary,
+        )
+    except ValueError as exc:
+        return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False)
+    return json.dumps(result, ensure_ascii=False)
+
+
 @function_tool(timeout=120)
 async def create_agent(
     ctx: RunContextWrapper,
@@ -411,6 +442,7 @@ async def create_agent(
     task: str,
     inherit_context: bool = True,
     skills: list[str] | None = None,
+    phase: Literal["recon", "testing"] | None = None,
 ) -> str:
     """Spawn a specialist child agent to run in parallel.
 
@@ -473,6 +505,21 @@ async def create_agent(
             default=str,
         )
 
+    caller_phase = await coordinator.phase_for(parent_id)
+    requested_phase = phase or caller_phase
+    if requested_phase != caller_phase or requested_phase != coordinator.scan_phase:
+        return json.dumps(
+            {
+                "success": False,
+                "error": (
+                    f"Cannot spawn a {requested_phase} agent: caller phase is "
+                    f"{caller_phase} and scan-wide phase is {coordinator.scan_phase}"
+                ),
+            },
+            ensure_ascii=False,
+            default=str,
+        )
+
     skill_list = list(skills or [])
     skill_error = validate_requested_skills(skill_list)
     if skill_error:
@@ -490,6 +537,7 @@ async def create_agent(
             task=task,
             skills=skill_list,
             parent_history=parent_history,
+            phase=requested_phase,
         )
     except Exception as e:
         logger.exception("create_agent: scan runner failed to spawn child '%s'", name)
