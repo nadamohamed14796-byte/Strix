@@ -357,7 +357,7 @@ async def spawn_child_agent(
             ),
             event_sink=event_sink,
             hooks=hooks,
-    )
+        )
     except Exception as exc:
         await coordinator.set_status(child_id, "crashed", error=str(exc))
         raise
