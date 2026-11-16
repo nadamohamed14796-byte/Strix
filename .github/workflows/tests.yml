@@ -34,11 +34,6 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
-      - name: Preview import auto-fixes
-        run: |
-          uv run ruff check --fix strix/agents/factory.py strix/tools/javascript_audit/tool.py || true
-          git diff -- strix/agents/factory.py strix/tools/javascript_audit/tool.py
-
       - name: Ruff lint
         run: uv run ruff check .
 
