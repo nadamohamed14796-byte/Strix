@@ -687,8 +687,29 @@ async def _run_cycle(  # noqa: PLR0912, PLR0915
                     await _compact_session(agent, session, run_config, force=False)
                 except Exception:
                     logger.exception("proactive compaction failed for %s", agent_id)
-                with contextlib.suppress(Exception):
+                try:
                     pre_run_items = list(await session.get_items())
+                    repaired_items, history_repaired = dedupe_history_call_ids(pre_run_items)
+                    if history_repaired:
+                        replaced = await replace_session_items(
+                            session,
+                            repaired_items,
+                            expected_len=len(pre_run_items),
+                        )
+                        if replaced:
+                            pre_run_items = repaired_items
+                            logger.warning(
+                                "repaired incomplete tool-call history before resuming %s",
+                                agent_id,
+                            )
+                        else:
+                            logger.warning(
+                                "session changed during tool-history repair for %s; "
+                                "leaving the newer history untouched",
+                                agent_id,
+                            )
+                except Exception:
+                    logger.exception("could not validate session history before running %s", agent_id)
             stream = Runner.run_streamed(
                 agent,
                 input=input_data,
