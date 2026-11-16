@@ -89,7 +89,7 @@ def test_resume_appends_new_targets_to_the_existing_run(
         },
     )
     target_list = tmp_path / "targets.txt"
-    target_list.write_text("https://new.example/\n", encoding="utf-8")
+    target_list.write_text("https://new.example/\nhttps://new.example/\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         sys,
