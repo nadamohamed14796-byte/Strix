@@ -22,7 +22,7 @@ from strix.core.execution import (
     notify_parent_on_terminal,
 )
 from strix.core.sessions import seed_initial_input
-from strix.tools.agents_graph.tools import agent_finish, stop_agent
+from strix.tools.agents_graph.tools import agent_finish, create_agent, stop_agent
 from strix.tools.finish.tool import finish_scan
 
 
@@ -1344,3 +1344,53 @@ async def test_scan_phase_is_persisted_and_restored() -> None:
     await restored.restore(snapshot)
     assert restored.scan_phase == "testing"
     assert await restored.phase_for("root") == "testing"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_tool_enforces_scan_phase() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register("recon-a", "Recon A", parent_id="root", phase="recon")
+    spawned: list[dict[str, Any]] = []
+
+    async def _spawn(**kwargs: Any) -> dict[str, Any]:
+        spawned.append(kwargs)
+        return {"success": True, "agent_id": "new-agent"}
+
+    async def _call(agent_id: str, parent_id: str | None, phase: str) -> dict[str, Any]:
+        ctx = ToolContext(
+            context={
+                "coordinator": coordinator,
+                "agent_id": agent_id,
+                "parent_id": parent_id,
+                "spawn_child_agent": _spawn,
+            },
+            tool_name="create_agent",
+            tool_call_id="call-create",
+            tool_arguments="{}",
+        )
+        raw = await create_agent.on_invoke_tool(
+            ctx,
+            json.dumps({"name": "phase worker", "task": "phase test", "phase": phase}),
+        )
+        return json.loads(raw)
+
+    blocked = await _call("root", None, "testing")
+    assert blocked["success"] is False
+    assert "scan-wide phase is recon" in blocked["error"]
+    assert spawned == []
+
+    await coordinator.set_status("recon-a", "completed")
+    await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="Every supplied target has a completed Recon outcome.",
+    )
+
+    accepted = await _call("root", None, "testing")
+    assert accepted["success"] is True
+    assert spawned[0]["phase"] == "testing"
+
+    child_blocked = await _call("recon-a", "root", "testing")
+    assert child_blocked["success"] is False
+    assert len(spawned) == 1
