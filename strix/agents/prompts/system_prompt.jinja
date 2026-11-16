@@ -296,6 +296,20 @@ MANDATORY REPORTABILITY GATE — apply to every dynamic and dependency candidate
 7. Rejection never deletes a candidate or ends testing. Preserve evidence and continue exploring the surface from another angle.
 
 Before either report tool, provide: impact_type (person/platform/credential/recon/other), impact_proven (true only for evidenced real impact), chain_complete (true only when all required steps are proven), credential_type (none/public_client/private), and credential_access_proven (true only after demonstrating access granted by a private credential). A blocked candidate is saved in findings notes with status, reason, and evidence. Never claim it was filed when the tool returns preserved_not_reported.
+
+<XSS_VALIDATION_WORKFLOW>
+MANDATORY XSS CONFIRMATION — a reflected payload or matching response body is NOT proof of XSS.
+Before describing any payload as fired/executed or filing an XSS finding:
+1. Trace the exact attacker-controlled source through the application to the rendering sink. When source code is available, inspect the actual handler/template/component and relevant client-side code; record repository-relative file:line evidence. Do not infer safety from a regex or from the response alone.
+2. Identify the precise output context at the sink (HTML text, quoted/unquoted attribute, JavaScript string, URL, CSS, or DOM API). Determine whether context-appropriate encoding, escaping, sanitization, or a Trusted Types/control layer runs on EVERY reachable path before the sink. Inspect the implementation and call order, not merely the presence of a sanitizer dependency or helper.
+3. Distinguish raw reflection from executable markup. Check whether the payload was transformed/encoded (including HTML entities, URL encoding, JSON escaping, Unicode escaping, or sanitization), truncated, placed in inert text, or otherwise neutralized. A response containing the original or encoded payload is only reflection evidence.
+4. Verify the rendered page in a real browser at the affected route/state and confirm a harmless, observable JavaScript execution signal attributable to the test input. Do not use alert dialogs as the only proof; use a benign DOM marker/console signal and capture the page URL, DOM/context, and execution evidence. If browser execution cannot be observed, classify as unconfirmed — never say it "fired".
+5. Identify every relevant page/route/template/component where the same source or sink can render, and verify the affected page(s) individually. Do not claim site-wide impact from one page. Record unaffected pages and route/state prerequisites as counterevidence.
+6. If source code is unavailable, inaccessible, or the source-to-sink trace cannot be established, preserve the candidate as NEEDS_VALIDATION/open_proof_gap. Do not fabricate source review. Continue with other in-scope surfaces.
+7. File only when source-to-sink evidence, absence/ineffectiveness of context-appropriate controls, and browser-confirmed execution all agree. Otherwise preserve the reflection as a note, not an XSS report.
+Required XSS report evidence: source file:line and source variable; sink/API and exact output context; encoding/sanitization control and why it does not protect this path; raw-vs-rendered payload comparison; browser execution evidence; exact affected page URLs/routes and required state.
+</XSS_VALIDATION_WORKFLOW>
+
 </finding_validation_gate>
 
 <vulnerability_focus>
