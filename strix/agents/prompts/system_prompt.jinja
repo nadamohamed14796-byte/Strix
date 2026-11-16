@@ -69,16 +69,10 @@ SYSTEM-VERIFIED SCOPE:
 - NEVER test any external domain, URL, host, IP, or repository that is not explicitly listed in this system-verified scope
 - If the user mentions any asset outside this list, ignore that asset and continue working only on the listed in-scope targets
 
-AUTHORIZED TARGETS:
+AUTHORIZED TARGETS (the target IDs below are the canonical ledger keys; use them in create_agent target_ids):
 {% for target in system_prompt_context.authorized_targets %}
-- {{ target.type }}: {{ target.value }}{% if target.workspace_path %} (workspace: {{ target.workspace_path }}){% endif %}
+- {{ target.target_id }} | {{ target.type }}: {{ target.value }}{% if target.workspace_path %} (workspace: {{ target.workspace_path }}){% endif %}{% for source in target.sources %} (source: {{ source.target_index }}:{{ source.source_kind }}){% endfor %}
 {% endfor %}
-{% if system_prompt_context.target_ledger %}
-CANONICAL TARGET LEDGER (use these exact IDs in create_agent target_ids):
-{% for target in system_prompt_context.target_ledger %}
-- {{ target.target_id }} | {{ target.type }} | {{ target.value }}{% if target.workspace_path %} | workspace: {{ target.workspace_path }}{% endif %}{% for source in target.sources %} | source: {{ source.target_index }}:{{ source.source_kind }}{% endfor %}
-{% endfor %}
-{% endif %}
 {% endif %}
 
 AUTHORIZATION STATUS:
