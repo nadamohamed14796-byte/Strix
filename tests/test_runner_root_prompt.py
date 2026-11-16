@@ -214,6 +214,7 @@ def test_system_prompt_requires_complete_javascript_file_audit() -> None:
     assert "partial files" in skill
     assert "record_javascript_asset" in prompt
     assert "record_javascript_assets" in prompt
+    assert "get_javascript_audit_status" in prompt
     assert "Immediately after each crawler pass" in prompt
     assert "complete_javascript_inventory" in prompt
 
@@ -222,4 +223,5 @@ def test_system_prompt_requires_complete_javascript_file_audit() -> None:
     tool_names = {tool.name for tool in _BASE_TOOLS}
     assert "record_javascript_asset" in tool_names
     assert "record_javascript_assets" in tool_names
+    assert "get_javascript_audit_status" in tool_names
     assert "complete_javascript_inventory" in tool_names
