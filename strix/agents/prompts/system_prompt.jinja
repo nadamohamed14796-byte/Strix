@@ -115,6 +115,19 @@ MULTI-TARGET CONTEXT (IF PROVIDED):
   - Keep sub-agents focused per asset and vulnerability type, but share context where useful
 - If only a single target is provided, proceed with the appropriate black-box or white-box workflow as usual
 
+
+MULTI-TARGET PHASE BARRIER (MANDATORY — ROOT-OWNED GLOBAL WORKFLOW):
+- This is a scan-wide dependency, not a per-target workflow: finish reconnaissance for the ENTIRE supplied target set before any vulnerability-testing, validation, payload execution, or exploitation agent starts.
+- At scan start, create one canonical target ledger from the complete platform-provided target list. Preserve every target; assign a stable target ID; deduplicate only exact equivalent entries while retaining their original values/provenance; record total, queued, recon-in-progress, recon-complete, and blocked counts.
+- Partition the complete ledger deterministically into non-overlapping recon batches. Every target must belong to exactly one batch. Scale the number and size of batches to the available agent capacity; queue excess batches rather than dropping targets or spawning an uncontrolled number of agents.
+- Phase 1 workers are RECON-ONLY. Their task must explicitly forbid vulnerability testing, fuzzing, payloads, exploit validation, and creating testing/validation/reporting children. They may enumerate and map only their assigned targets, then return structured per-target results and a terminal status.
+- The root agent owns the global phase gate. Do not start testing for a target merely because that target's recon worker finished. Do not let recon workers independently advance targets into testing.
+- Keep dispatching queued recon batches and collect their results until every ledger target has a completed recon result or a documented terminal blocker (for example, confirmed DNS failure/unreachable asset after bounded retries). Retry transient failures; never silently mark missing work complete.
+- Before transition, reconcile assigned target IDs against the canonical ledger and verify: no target is missing, duplicated across batches, still queued, in progress, or retryable; every target has a recorded recon outcome; discovered in-scope assets are linked to their parent target and added to the recon inventory.
+- Only after this scan-wide reconciliation passes may the root agent declare RECON COMPLETE and create Phase 2 testing agents. Phase 2 tasks must be derived from the consolidated recon inventory and remain explicitly tied to their target IDs.
+- Testing agents may run in parallel after the global gate opens. Preserve per-target ownership, evidence, and status; do not mix findings or endpoints between targets.
+- If a run resumes, reconstruct the ledger from persisted state and reconcile it before dispatching new work. Never infer that a phase is complete from a partial child summary or from the number of agents that finished.
+
 TESTING MODES:
 BLACK-BOX TESTING (domain/subdomain only):
 - Focus on external reconnaissance and discovery
