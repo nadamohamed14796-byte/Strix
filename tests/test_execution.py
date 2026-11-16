@@ -1284,3 +1284,61 @@ async def test_autonomous_nudge_does_not_offer_the_user() -> None:
     )
 
     assert "respond_to_user" not in items[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_scan_phase_gate_requires_root_reconciliation_and_completed_recon_workers() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register("recon-a", "Recon A", parent_id="root", phase="recon")
+
+    with pytest.raises(ValueError, match="Only the root agent"):
+        await coordinator.advance_scan_phase(
+            "recon-a",
+            confirmed_all_targets_reconciled=True,
+            reconciliation_summary="all targets reconciled",
+        )
+
+    with pytest.raises(ValueError, match="not all completed"):
+        await coordinator.advance_scan_phase(
+            "root",
+            confirmed_all_targets_reconciled=True,
+            reconciliation_summary="all targets reconciled",
+        )
+
+    await coordinator.set_status("recon-a", "completed")
+    with pytest.raises(ValueError, match="explicitly confirm"):
+        await coordinator.advance_scan_phase(
+            "root",
+            confirmed_all_targets_reconciled=False,
+            reconciliation_summary="all targets reconciled",
+        )
+
+    result = await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="Every supplied target has a completed Recon outcome.",
+    )
+    assert result["scan_phase"] == "testing"
+    assert await coordinator.phase_for("root") == "testing"
+
+    with pytest.raises(ValueError, match="Cannot register"):
+        await coordinator.register("late-recon", "Late Recon", parent_id="root", phase="recon")
+    await coordinator.register("testing-a", "Testing A", parent_id="root", phase="testing")
+
+
+@pytest.mark.asyncio
+async def test_scan_phase_is_persisted_and_restored() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="No Recon workers were needed; root reconciled the supplied scope.",
+    )
+    snapshot = await coordinator.snapshot()
+
+    restored = AgentCoordinator()
+    await restored.restore(snapshot)
+    assert restored.scan_phase == "testing"
+    assert await restored.phase_for("root") == "testing"
