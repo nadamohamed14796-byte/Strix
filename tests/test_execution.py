@@ -1394,3 +1394,79 @@ async def test_create_agent_tool_enforces_scan_phase() -> None:
     child_blocked = await _call("recon-a", "root", "testing")
     assert child_blocked["success"] is False
     assert len(spawned) == 1
+
+
+@pytest.mark.asyncio
+async def test_target_ledger_requires_exact_recon_outcomes_before_phase_transition() -> None:
+    coordinator = AgentCoordinator()
+    ledger = [
+        {"target_id": "target-a", "type": "web_application", "value": "https://a.example"},
+        {"target_id": "target-b", "type": "web_application", "value": "https://b.example"},
+    ]
+    await coordinator.initialize_target_ledger(ledger)
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register(
+        "recon-batch",
+        "Recon Batch",
+        parent_id="root",
+        phase="recon",
+        target_ids=["target-a", "target-b"],
+    )
+
+    with pytest.raises(ValueError, match="missing"):
+        await coordinator.record_target_outcomes(
+            "recon-batch",
+            [{"target_id": "target-a", "status": "complete", "summary": "DNS and HTTP checked"}],
+        )
+
+    with pytest.raises(ValueError, match="unreconciled"):
+        await coordinator.advance_scan_phase(
+            "root",
+            confirmed_all_targets_reconciled=True,
+            reconciliation_summary="All targets reconciled.",
+        )
+
+    await coordinator.record_target_outcomes(
+        "recon-batch",
+        [
+            {"target_id": "target-a", "status": "complete", "summary": "DNS and HTTP checked"},
+            {"target_id": "target-b", "status": "blocked", "summary": "DNS failure after retries"},
+        ],
+    )
+    await coordinator.set_status("recon-batch", "completed")
+    result = await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="Both targets have terminal Recon outcomes.",
+    )
+
+    assert result["scan_phase"] == "testing"
+    assert coordinator.target_ledger["target-a"]["status"] == "recon_complete"
+    assert coordinator.target_ledger["target-b"]["status"] == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_target_ledger_reassigns_targets_after_terminal_worker_failure() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.initialize_target_ledger(
+        [{"target_id": "target-a", "type": "web_application", "value": "https://a.example"}]
+    )
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register(
+        "recon-first",
+        "Recon First",
+        parent_id="root",
+        phase="recon",
+        target_ids=["target-a"],
+    )
+    await coordinator.set_status("recon-first", "crashed")
+    await coordinator.register(
+        "recon-retry",
+        "Recon Retry",
+        parent_id="root",
+        phase="recon",
+        target_ids=["target-a"],
+    )
+
+    assert coordinator.target_ledger["target-a"]["assigned_to"] == "recon-retry"
+    assert coordinator.target_ledger["target-a"]["attempts"] == 2
