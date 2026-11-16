@@ -727,17 +727,23 @@ def _estimate_response_cost(kwargs: Any, completion_response: Any) -> float | No
 
     for candidate in candidates:
         resolved = resolve_litellm_model(candidate)
-        if not resolved:
-            continue
-        try:
-            value = completion_cost(
-                completion_response={"model": resolved, "usage": usage_payload},
-                model=resolved,
-            )
-        except Exception:  # nosec B112  # noqa: BLE001, S112
-            continue
-        if isinstance(value, int | float) and value > 0:
-            return float(value)
+        # Provider-prefixed routed names may be accepted by LiteLLM's cost
+        # calculator even when they are absent from its local model catalog.
+        # Try the catalog-resolved name first, then the original candidate;
+        # completion_cost remains the authority and rejects unknown models.
+        attempts = [resolved] if resolved else []
+        if candidate not in attempts:
+            attempts.append(candidate)
+        for model_name in attempts:
+            try:
+                value = completion_cost(
+                    completion_response={"model": model_name, "usage": usage_payload},
+                    model=model_name,
+                )
+            except Exception:  # nosec B112  # noqa: BLE001, S112
+                continue
+            if isinstance(value, int | float) and value > 0:
+                return float(value)
     return None
 
 
