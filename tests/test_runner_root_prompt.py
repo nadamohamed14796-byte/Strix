@@ -250,7 +250,7 @@ def test_root_prompt_enforces_scan_wide_recon_before_testing() -> None:
     for required in (
         "Global Multi-Target Phase Gate",
         "all-target Recon first, Testing second",
-        "recon-only workers",
+        "Recon workers must not delegate",
         "root agent alone controls the phase transition",
         "never sample, truncate, or silently omit targets",
     ):
