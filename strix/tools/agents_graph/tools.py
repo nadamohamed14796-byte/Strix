@@ -424,8 +424,8 @@ async def advance_scan_phase(
     """Root-only gate: transition the whole scan from Recon to Testing.
 
     Call only after the complete supplied target set has a reconciled Recon
-    outcome. Runtime verifies no registered Recon worker remains active; the root
-    must still account for terminal failures and blockers in its reconciliation.
+    outcome. Runtime verifies every seed target has a terminal outcome and no
+    Recon worker remains active; blocked targets cannot be assigned to Testing.
     """
     inner = _ctx(ctx)
     coordinator = coordinator_from_context(inner)
