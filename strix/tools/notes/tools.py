@@ -83,10 +83,12 @@ def hydrate_notes_from_disk(state_dir: Path) -> None:
         )
 
 
-def _persist() -> None:
+def _persist() -> bool:
+    """Persist the current notes snapshot; report failure to the caller."""
     path = _notes_path
     if path is None:
-        return
+        logger.error("notes persistence requested before a state directory was configured")
+        return False
     try:
         payload = json.dumps(_notes_storage, ensure_ascii=False, default=str)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,8 +106,10 @@ def _persist() -> None:
             tmp.write(payload)
             tmp_path = Path(tmp.name)
         tmp_path.replace(path)
+        return True
     except Exception:
         logger.exception("notes persist to %s failed", path)
+        return False
 
 
 def _filter_notes(
@@ -225,7 +229,13 @@ def _create_note_impl(
         except (ValueError, TypeError) as e:
             return {"success": False, "error": f"Failed to create note: {e}", "note_id": None}
         else:
-            _persist()
+            if not _persist():
+                return {
+                    "success": False,
+                    "error": "Note is in memory but could not be persisted to disk",
+                    "note_id": note_id,
+                    "total_count": len(_notes_storage),
+                }
             return {
                 "success": True,
                 "note_id": note_id,
