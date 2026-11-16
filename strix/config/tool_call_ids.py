@@ -34,28 +34,24 @@ def collect_call_ids(items: list[Any]) -> set[str]:
     return used
 
 
-def _item_field(item: Any, field: str) -> Any:
+def _normalize_tool_item(item: Any) -> Any:
     if isinstance(item, dict):
-        return item.get(field)
-    return getattr(item, field, None)
-
-
-def _replace_call_id(item: Any, call_id: str) -> Any:
-    if isinstance(item, dict):
-        return {**item, "call_id": call_id}
-    model_copy = getattr(item, "model_copy", None)
-    if callable(model_copy):
-        return model_copy(update={"call_id": call_id})
-    return item
+        return item
+    if getattr(item, "type", None) not in {"function_call", "function_call_output"}:
+        return item
+    model_dump = getattr(item, "model_dump", None)
+    if not callable(model_dump):
+        return item
+    dumped = model_dump(mode="json", exclude_none=True)
+    return dumped if isinstance(dumped, dict) else item
 
 
 def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
     """Repair duplicate and orphan tool items in a conversation history.
 
-    Session items can be dictionaries or typed OpenAI response objects. Both
-    representations must participate in pairing: otherwise a typed assistant
-    call followed by a dictionary tool result is misclassified as an orphan,
-    and Chat Completions rejects the resulting role=tool message.
+    Session items can be dictionaries or typed OpenAI response objects. Convert
+    typed tool items to dictionaries because the Chat Completions converter only
+    recognizes dictionary response items; then pair calls and outputs by ID.
     """
     used: set[str] = set()
     pending: dict[str, deque[str]] = defaultdict(deque)
@@ -63,8 +59,9 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
     changed = False
 
     for original_item in items:
-        kind = _item_field(original_item, "type")
-        call_id = _item_field(original_item, "call_id")
+        item = _normalize_tool_item(original_item)
+        kind = item.get("type") if isinstance(item, dict) else None
+        call_id = item.get("call_id") if isinstance(item, dict) else None
         if not isinstance(call_id, str) or kind not in {
             "function_call",
             "function_call_output",
@@ -72,12 +69,11 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
             rebuilt.append(original_item)
             continue
 
-        item = original_item
         if kind == "function_call":
             effective = call_id
             if call_id in used:
                 effective = new_call_id()
-                item = _replace_call_id(item, effective)
+                item = {**item, "call_id": effective}
                 changed = True
             used.add(effective)
             pending[call_id].append(effective)
@@ -91,7 +87,7 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
                 continue
             effective = queue.popleft()
             if effective != call_id:
-                item = _replace_call_id(item, effective)
+                item = {**item, "call_id": effective}
                 changed = True
         rebuilt.append(item)
 
