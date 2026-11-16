@@ -107,6 +107,32 @@ async def record_javascript_asset(
     return json.dumps({"success": True, "asset": entry, "tracked_assets": len(assets)}, ensure_ascii=False)
 
 
+@function_tool(timeout=30)
+async def complete_javascript_inventory(ctx: RunContextWrapper) -> str:
+    """Mark recursive JavaScript discovery complete after the crawl/import queue is exhausted.
+
+    Call only after crawler results, HTML script references, static imports,
+    and discovered dynamic chunks have been reconciled. This does not mark
+    any asset analyzed; each ledger entry must separately reach a terminal status.
+    """
+    path = _ledger_path()
+    if path is None:
+        return json.dumps({"success": False, "error": "Scan report state is unavailable"})
+    async with _LOCK:
+        try:
+            data = _load(path)
+            data["inventory_complete"] = True
+            _save(path, data)
+        except (OSError, RuntimeError, TypeError) as exc:
+            logger.exception("Failed to complete JavaScript inventory")
+            return json.dumps({"success": False, "error": f"Could not persist inventory completion: {exc}"})
+    return json.dumps({
+        "success": True,
+        "inventory_complete": True,
+        "tracked_assets": len(data["assets"]),
+    })
+
+
 def javascript_audit_status(run_dir: Path) -> dict[str, Any]:
     """Return audit coverage for finish_scan; absent ledger means not initialized."""
     path = run_dir / "javascript_audit.json"
