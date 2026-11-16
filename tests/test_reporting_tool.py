@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+
 import pytest
 
-from strix.tools.reporting.tool import _calculate_cvss
+from strix.tools.reporting.tool import _calculate_cvss, _reporting_phase_error
 
 
 def test_cvss_without_demonstrated_impact_is_informational() -> None:
@@ -46,3 +49,15 @@ def test_cvss_calculation_does_not_fabricate_high_severity(
                 "availability": "N",
             }
         )
+
+
+def test_reporting_is_blocked_until_scan_wide_testing_phase() -> None:
+    coordinator = SimpleNamespace(scan_phase="recon")
+    context = SimpleNamespace(context={"coordinator": coordinator})
+
+    blocked = _reporting_phase_error(context)  # type: ignore[arg-type]
+    assert blocked is not None
+    assert json.loads(blocked)["success"] is False
+
+    coordinator.scan_phase = "testing"
+    assert _reporting_phase_error(context) is None  # type: ignore[arg-type]
