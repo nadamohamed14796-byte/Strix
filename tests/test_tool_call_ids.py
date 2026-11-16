@@ -218,8 +218,11 @@ def test_history_dedupe_pairs_typed_call_with_dictionary_output() -> None:
 
     rebuilt, changed = dedupe_history_call_ids(items)
 
-    assert not changed
-    assert rebuilt == items
+    assert changed
+    assert all(isinstance(item, dict) for item in rebuilt)
+    assert rebuilt[0]["type"] == "function_call"
+    assert rebuilt[0]["call_id"] == rebuilt[1]["call_id"] == "call_a"
+    assert rebuilt[1]["output"] == "paired"
 
 def test_history_dedupe_pairs_parallel_calls_by_order() -> None:
     items = [
