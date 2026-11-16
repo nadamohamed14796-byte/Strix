@@ -84,33 +84,37 @@ def hydrate_notes_from_disk(state_dir: Path) -> None:
 
 
 def _persist() -> bool:
-    """Persist the current notes snapshot; report failure to the caller."""
+    """Atomically persist notes and report failures to the calling tool."""
     path = _notes_path
     if path is None:
         logger.error("notes persistence requested before a state directory was configured")
         return False
+    tmp_path: Path | None = None
     try:
-        payload = json.dumps(_notes_storage, ensure_ascii=False, default=str)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with (
-            _notes_lock,
-            tempfile.NamedTemporaryFile(
+        with _notes_lock:
+            payload = json.dumps(_notes_storage, ensure_ascii=False, default=str)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
                 mode="w",
                 encoding="utf-8",
                 dir=str(path.parent),
                 prefix=f".{path.name}.",
                 suffix=".tmp",
                 delete=False,
-            ) as tmp,
-        ):
-            tmp.write(payload)
-            tmp_path = Path(tmp.name)
-        tmp_path.replace(path)
+            ) as tmp:
+                tmp.write(payload)
+                tmp.flush()
+                tmp_path = Path(tmp.name)
+            tmp_path.replace(path)
         return True
     except Exception:
         logger.exception("notes persist to %s failed", path)
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("could not remove temporary notes file %s", tmp_path)
         return False
-
 
 def _filter_notes(
     category: str | None = None,
@@ -230,11 +234,11 @@ def _create_note_impl(
             return {"success": False, "error": f"Failed to create note: {e}", "note_id": None}
         else:
             if not _persist():
+                _notes_storage.pop(note_id, None)
                 return {
                     "success": False,
-                    "error": "Note is in memory but could not be persisted to disk",
-                    "note_id": note_id,
-                    "total_count": len(_notes_storage),
+                    "error": "Note could not be saved to disk; the in-memory change was rolled back.",
+                    "note_id": None,
                 }
             return {
                 "success": True,
@@ -308,6 +312,7 @@ def _update_note_impl(
             if note_id not in _notes_storage:
                 return {"success": False, "error": f"Note with ID '{note_id}' not found"}
             note = _notes_storage[note_id]
+            previous_note = note.copy()
             if title is not None:
                 if not title.strip():
                     return {"success": False, "error": "Title cannot be empty"}
@@ -323,11 +328,11 @@ def _update_note_impl(
             return {"success": False, "error": f"Failed to update note: {e}"}
         else:
             if not _persist():
-                _notes_storage.pop(note_id, None)
+                _notes_storage[note_id] = previous_note
                 return {
                     "success": False,
-                    "note_id": None,
-                    "error": "Note was created in memory but could not be saved to disk; retry after checking state-directory permissions and storage.",
+                    "note_id": note_id,
+                    "error": "Note update could not be saved to disk; the previous in-memory version was restored.",
                 }
             return {
                 "success": True,
