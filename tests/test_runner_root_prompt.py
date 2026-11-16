@@ -196,3 +196,19 @@ async def test_unknown_tool_calls_are_returned_to_the_model(
     )
 
     assert captured["run_config"].tool_not_found_behavior == "return_error_to_model"
+
+def test_system_prompt_requires_complete_javascript_file_audit() -> None:
+    """The scan prompt must not let the root agent skip per-file JS coverage."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    prompt = (root / "strix/agents/prompts/system_prompt.jinja").read_text(encoding="utf-8")
+    skill_path = root / "strix/skills/reconnaissance/javascript_file_audit.md"
+    skill = skill_path.read_text(encoding="utf-8")
+
+    assert "JAVASCRIPT FILE-BY-FILE AUDIT (MANDATORY AFTER WEB CRAWLING)" in prompt
+    assert "every fetched unique file individually" in prompt
+    assert "javascript-file-audit" in prompt
+    assert "Coverage and completion gate" in skill
+    assert "dynamically validated" in skill
+    assert "partial files" in skill
