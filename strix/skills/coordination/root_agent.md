@@ -106,3 +106,14 @@ When all agents report completion:
 2. Assess overall security posture
 3. Compile executive summary with prioritized recommendations
 4. Invoke finish tool with final report
+
+
+## Mandatory JavaScript Intelligence Stage (after web crawling)
+
+The web-crawling/reconnaissance agent owns a dedicated nested child named **JavaScript Analysis**. Immediately after the initial crawl and technology fingerprinting, it must collect and deduplicate all in-scope first-party JavaScript assets (including authenticated pages, route chunks, dynamic imports, workers, inline bootstraps and available source maps), then spawn that child with the `javascript-attack-surface` skill. The child is nested under the crawler, not a peer of the root. Pass it the crawl manifest, script URLs, authenticated-page coverage, proxy-history references, scope and technology fingerprints.
+
+The child must extract endpoint methods, all path/query/body parameters (including hidden/derived ones), actual client-set headers, auth/session assumptions, request/response shapes, validation/encoding/sanitization checks, source locations, function/call-graph details, and STATIC_ONLY / OBSERVED_ONLY / STATIC_AND_OBSERVED provenance. It must trace login/recovery/MFA and organization/tenant/workspace/member/role/permission/ownership flows and produce evidence-backed hypotheses, not findings.
+
+Require canonical shared artifacts under `/workspace/recon/javascript/`: `manifest.json`, `assets.jsonl`, `endpoints.jsonl`, `functions.md`, and `attack-survey.md`, plus one scan note linking them. The crawler waits for the initial analysis handoff before declaring recon complete, but can continue bounded crawling and append newly discovered scripts without duplicating records.
+
+The root and later testers MUST read this ledger. Use it to spawn focused validation agents for prioritized hypotheses, especially tenant/object binding, role/permission enforcement, hidden-parameter validation, and authentication-state handling. A client-side code smell is not proof; verify server-side enforcement and impact with minimal authorized test accounts/objects. Preserve untested hypotheses and counterevidence.
