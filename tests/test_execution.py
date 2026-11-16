@@ -1466,6 +1466,14 @@ async def test_target_ledger_reassigns_targets_after_terminal_worker_failure() -
         phase="recon",
         target_ids=["target-a"],
     )
+    with pytest.raises(ValueError, match="Recon batches are root-owned"):
+        await coordinator.register(
+            "nested-recon",
+            "Nested Recon",
+            parent_id="recon-first",
+            phase="recon",
+            target_ids=["target-a"],
+        )
     await coordinator.set_status("recon-first", "crashed")
     await coordinator.register(
         "recon-retry",
