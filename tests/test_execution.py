@@ -52,7 +52,7 @@ async def test_session_history_is_repaired_before_replay(monkeypatch: pytest.Mon
 
     monkeypatch.setattr(execution, "replace_session_items", fake_replace_session_items)
 
-    result = await execution._repair_session_tool_history(FakeSession(), "agent-1")
+    result = await execution._repair_session_tool_history(cast("Any", FakeSession()), "agent-1")
 
     assert result == []
     assert replaced == {"items": [], "expected_len": 1}
