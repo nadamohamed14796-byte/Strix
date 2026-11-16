@@ -357,11 +357,11 @@ class ReportState:
         http_exchange_ids: list[str] | None = None,
         fix_verification: str | None = None,
         fix_pr_body: str | None = None,
-        validation_gate: dict[str, Any] | None = None,
         finding_class: str | None = None,
         dependency_metadata: dict[str, str] | None = None,
         agent_id: str | None = None,
         agent_name: str | None = None,
+        validation_gate: dict[str, Any] | None = None,
     ) -> str:
         report_id = self._next_report_id()
 
