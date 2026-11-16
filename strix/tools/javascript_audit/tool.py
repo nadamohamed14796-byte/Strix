@@ -134,7 +134,7 @@ def _merge_discovered_assets(
     added = 0
     for url in unique_urls:
         previous = assets.get(url)
-        if previous is None:
+        if not isinstance(previous, dict):
             assets[url] = {
                 "url": url,
                 "status": "discovered",
@@ -145,7 +145,8 @@ def _merge_discovered_assets(
             }
             added += 1
             continue
-        sources = list(previous.get("sources", []))
+        raw_sources = previous.get("sources", [])
+        sources = list(raw_sources) if isinstance(raw_sources, list) else []
         if source not in sources:
             sources.append(source)
         previous["sources"] = sources
