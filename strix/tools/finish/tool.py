@@ -56,6 +56,23 @@ def _do_finish(
                 "message": "Scan completed (not persisted)",
                 "warning": "Results could not be persisted - report state unavailable",
             }
+        from strix.tools.javascript_audit.tool import javascript_audit_status
+
+        audit = javascript_audit_status(report_state.get_run_dir())
+        if audit["pending"]:
+            pending_preview = audit["pending"][:20]
+            return {
+                "success": False,
+                "scan_completed": False,
+                "error": "JavaScript asset audit is incomplete. Inspect every discovered asset individually, then record analyzed/failed/skipped status.",
+                "javascript_audit": {
+                    "total": audit["total"],
+                    "pending_count": len(audit["pending"]),
+                    "pending_assets": pending_preview,
+                    "truncated": len(audit["pending"]) > len(pending_preview),
+                },
+            }
+
         report_state.update_scan_final_fields(
             executive_summary=executive_summary.strip(),
             methodology=methodology.strip(),
@@ -76,6 +93,8 @@ def _do_finish(
             "scan_completed": True,
             "message": "Scan completed successfully",
             "vulnerabilities_found": vuln_count,
+            "javascript_assets_audited": audit["total"],
+            "javascript_audit_gaps": audit["terminal"],
         }
 
 
