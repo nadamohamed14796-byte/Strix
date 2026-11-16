@@ -334,29 +334,33 @@ async def spawn_child_agent(
         target_ids=target_ids,
     )
 
-    await _start_child_runner(
-        parent_ctx=parent_ctx,
-        coordinator=coordinator,
-        agents_db_path=agents_db_path,
-        sessions_to_close=sessions_to_close,
-        run_config=run_config,
-        max_turns=max_turns,
-        interactive=interactive,
-        child_agent=child_agent,
-        child_id=child_id,
-        name=name,
-        parent_id=parent_id,
-        task=task,
-        initial_input=child_initial_input(
-            name=name,
+    try:
+        await _start_child_runner(
+            parent_ctx=parent_ctx,
+            coordinator=coordinator,
+            agents_db_path=agents_db_path,
+            sessions_to_close=sessions_to_close,
+            run_config=run_config,
+            max_turns=max_turns,
+            interactive=interactive,
+            child_agent=child_agent,
             child_id=child_id,
+            name=name,
             parent_id=parent_id,
             task=task,
-            parent_history=parent_history,
-        ),
-        event_sink=event_sink,
-        hooks=hooks,
+            initial_input=child_initial_input(
+                name=name,
+                child_id=child_id,
+                parent_id=parent_id,
+                task=task,
+                parent_history=parent_history,
+            ),
+            event_sink=event_sink,
+            hooks=hooks,
     )
+    except Exception as exc:
+        await coordinator.set_status(child_id, "crashed", error=str(exc))
+        raise
 
     return {
         "success": True,
