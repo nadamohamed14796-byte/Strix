@@ -1569,3 +1569,49 @@ async def test_spawn_child_agent_includes_assigned_target_ids_in_task(
     assert "target-a" in coordinator.metadata[child_id]["task"]
     assert "Return one Recon outcome for each ID." in coordinator.metadata[child_id]["task"]
     assert "target-a" in captured["task"]
+
+
+@pytest.mark.asyncio
+async def test_failed_child_start_marks_target_assignment_retryable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Any,
+) -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.initialize_target_ledger(
+        [{"target_id": "target-a", "type": "web_application", "value": "https://a.example"}]
+    )
+    await coordinator.register("root", "Root", parent_id=None)
+
+    async def _fail_start(**_kwargs: Any) -> None:
+        raise RuntimeError("child runner failed to start")
+
+    monkeypatch.setattr(execution, "_start_child_runner", _fail_start)
+    with pytest.raises(RuntimeError, match="failed to start"):
+        await execution.spawn_child_agent(
+            coordinator=coordinator,
+            factory=lambda **_kwargs: object(),
+            agents_db_path=tmp_path / "agents.db",
+            sessions_to_close=[],
+            run_config=cast(Any, None),
+            max_turns=5,
+            interactive=False,
+            parent_ctx={"agent_id": "root"},
+            name="Recon Worker",
+            task="Inventory the assigned authorized target.",
+            skills=[],
+            parent_history=[],
+            phase="recon",
+            target_ids=["target-a"],
+        )
+
+    child_id = coordinator.target_ledger["target-a"]["assigned_to"]
+    assert child_id is not None
+    assert coordinator.statuses[child_id] == "crashed"
+    await coordinator.register(
+        "recon-retry",
+        "Recon Retry",
+        parent_id="root",
+        phase="recon",
+        target_ids=["target-a"],
+    )
+    assert coordinator.target_ledger["target-a"]["assigned_to"] == "recon-retry"
