@@ -28,7 +28,7 @@ Before spawning agents, analyze the target from the scan config/scope and any pr
 
 ## Global Multi-Target Phase Gate
 
-For a scan with multiple targets, especially large lists, the workflow is scan-wide and strictly phased. **Do not run recon and vulnerability testing as interleaved per-target pipelines.**
+For any scan with a platform-provided target ledger, including a single target and especially large lists, the workflow is scan-wide and strictly phased. **Do not run recon and vulnerability testing as interleaved per-target pipelines.**
 
 1. Use the platform-provided `target_ledger` in the verified scope context as the canonical seed-target ledger. Preserve its stable `target_id`, original value, workspace path, and source provenance; do not regenerate IDs. Exact duplicate scope entries are already deduplicated while their source indexes are retained. Track the ledger states and never silently drop an entry.
 2. Partition the full ledger into deterministic, non-overlapping recon batches. Every target must appear exactly once. Bound active workers to available capacity and queue the remaining batches; never sample, truncate, or silently omit targets.
