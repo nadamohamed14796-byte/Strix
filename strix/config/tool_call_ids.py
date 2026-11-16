@@ -60,6 +60,8 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
 
     for original_item in items:
         item = _normalize_tool_item(original_item)
+        if item is not original_item:
+            changed = True
         kind = item.get("type") if isinstance(item, dict) else None
         call_id = item.get("call_id") if isinstance(item, dict) else None
         if not isinstance(call_id, str) or kind not in {
