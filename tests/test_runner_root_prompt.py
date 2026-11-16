@@ -212,3 +212,11 @@ def test_system_prompt_requires_complete_javascript_file_audit() -> None:
     assert "Coverage and completion gate" in skill
     assert "dynamically validated" in skill
     assert "partial files" in skill
+    assert "record_javascript_asset" in prompt
+    assert "complete_javascript_inventory" in prompt
+
+    from strix.agents.factory import _BASE_TOOLS
+
+    tool_names = {tool.name for tool in _BASE_TOOLS}
+    assert "record_javascript_asset" in tool_names
+    assert "complete_javascript_inventory" in tool_names
