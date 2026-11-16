@@ -301,7 +301,9 @@ class AgentCoordinator:
             if len(normalized_target_ids) != len(target_ids or []):
                 raise ValueError("A child task cannot contain duplicate target IDs")
             if parent_id is not None and self.target_ledger:
-                if assigned_phase == "recon" and self.parent_of.get(parent_id) is not None:
+                if assigned_phase == "recon" and (
+                    parent_id not in self.parent_of or self.parent_of[parent_id] is not None
+                ):
                     raise ValueError("Recon batches are root-owned; Recon workers cannot delegate")
                 if not normalized_target_ids:
                     raise ValueError(
