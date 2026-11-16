@@ -180,17 +180,17 @@ class AgentCoordinator:
             if self.scan_phase != "recon":
                 raise ValueError(f"Cannot advance from scan phase {self.scan_phase!r}")
             if not confirmed_all_targets_reconciled or not reconciliation_summary.strip():
-                raise ValueError(
-                    "Root must confirm target reconciliation and provide a summary"
-                )
+                raise ValueError("Root must confirm target reconciliation and provide a summary")
             unfinished = [
-                aid for aid, metadata in self.metadata.items()
+                aid
+                for aid, metadata in self.metadata.items()
                 if aid != agent_id
                 and metadata.get("phase", "recon") == "recon"
                 and self.statuses.get(aid) in {"running", "waiting", "budget_paused"}
             ]
             unreconciled = [
-                target_id for target_id, entry in self.target_ledger.items()
+                target_id
+                for target_id, entry in self.target_ledger.items()
                 if entry.get("status") not in {"recon_complete", "blocked"}
             ]
             if unreconciled:
@@ -301,7 +301,8 @@ class AgentCoordinator:
         async with self._lock:
             parent_phase = (
                 self.metadata.get(parent_id, {}).get("phase", self.scan_phase)
-                if parent_id is not None else self.scan_phase
+                if parent_id is not None
+                else self.scan_phase
             )
             assigned_phase = phase or parent_phase
             if assigned_phase != self.scan_phase or assigned_phase != parent_phase:
@@ -326,7 +327,8 @@ class AgentCoordinator:
                     raise ValueError(f"Child task references unknown target IDs: {unknown}")
                 if assigned_phase == "testing":
                     blocked = [
-                        target_id for target_id in normalized_target_ids
+                        target_id
+                        for target_id in normalized_target_ids
                         if self.target_ledger[target_id].get("status") != "recon_complete"
                     ]
                     if blocked:
@@ -343,7 +345,9 @@ class AgentCoordinator:
                             )
                         owner = entry.get("assigned_to")
                         if owner and self.statuses.get(owner) in {
-                            "running", "waiting", "budget_paused"
+                            "running",
+                            "waiting",
+                            "budget_paused",
                         }:
                             raise ValueError(
                                 f"Target {target_id} is already assigned to active worker {owner}"
@@ -693,10 +697,15 @@ class AgentCoordinator:
             self.statuses = dict(snap.get("statuses", {}))
             self.scan_phase = "testing" if snap.get("scan_phase") == "testing" else "recon"
             raw_ledger = snap.get("target_ledger", {})
-            self.target_ledger = {
-                tid: dict(entry) for tid, entry in raw_ledger.items()
-                if isinstance(tid, str) and isinstance(entry, dict)
-            } if isinstance(raw_ledger, dict) else {}
+            self.target_ledger = (
+                {
+                    tid: dict(entry)
+                    for tid, entry in raw_ledger.items()
+                    if isinstance(tid, str) and isinstance(entry, dict)
+                }
+                if isinstance(raw_ledger, dict)
+                else {}
+            )
             self._target_ledger_initialized = bool(
                 snap.get("target_ledger_initialized", "target_ledger" in snap)
             )
@@ -706,7 +715,8 @@ class AgentCoordinator:
             for aid in self.statuses:
                 if self.metadata.get(aid, {}).get("phase") not in {"recon", "testing"}:
                     parent = self.parent_of.get(aid)
-                    inherited = self.metadata.get(parent, {}).get("phase", self.scan_phase)
+                    parent_metadata = self.metadata.get(parent, {}) if parent is not None else {}
+                    inherited = parent_metadata.get("phase", self.scan_phase)
                     self.metadata.setdefault(aid, {})["phase"] = inherited
             self.pending_counts = dict(snap.get("pending_counts", {}))
             self.errors = dict(snap.get("errors", {}))
