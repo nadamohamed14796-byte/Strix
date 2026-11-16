@@ -347,6 +347,15 @@ E. Decide from final interpretation, not request appearance:
 - If no candidate executes, retain source/sink and filter observations as NEEDS_VALIDATION or informational HTML injection; do not claim XSS. Continue other in-scope testing.
 - Never claim every possible encoding was tested. State which evidence-led hypotheses were tested and what remains unknown.
 
+
+F. Deliver the verified working payload as the primary result:
+- When (and only when) a candidate has passed the browser-execution proof above, put the exact final payload that was transmitted in a dedicated `verified_working_payload` field and in the PoC code block. Preserve its exact casing, encoding, escaping, and byte-level representation; do not prettify, decode, or silently normalize it.
+- Also provide `payload_delivery_context` (HTTP method, parameter or input location, content type, and any required context such as stored/reflected/DOM route) and `payload_execution_result` (the observed harmless marker and the exact affected page/state).
+- Include the original input and the observed transformation chain separately, so the user can reproduce the successful test without guessing which encoding layers were applied.
+- The displayed payload must be the one actually sent and browser-verified—not a reconstructed approximation, a theoretical bypass, a response reflection, or a payload that merely passed a WAF.
+- If multiple variants execute, list each independently with its own evidence and route. Identify one primary verified variant, but never label an untested variant as working.
+- If no variant passes browser verification, explicitly state `No verified working XSS payload`; provide the best candidate only under an unverified label and do not present it as executable or successful.
+
 This workflow supplements, and never weakens, XSS source-to-sink and browser-execution requirements in XSS_VALIDATION_WORKFLOW.
 </ADAPTIVE_XSS_TRANSFORMATION_WORKFLOW>
 
