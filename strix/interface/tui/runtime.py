@@ -99,6 +99,9 @@ class GoTuiRuntime:
             report_state=self.report_state,
             scan_loop=asyncio.get_running_loop(),
         )
+        self.controller.add_message(
+            "During Recon, type /target <URL, domain, or IP> to add a target to this same run."
+        )
         self.report_state.vulnerability_found_callback = lambda _report: (
             self.controller.notify_changed()
         )
