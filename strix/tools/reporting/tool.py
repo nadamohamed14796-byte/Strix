@@ -8,6 +8,7 @@ review what's been filed so far across the whole scan.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
@@ -201,6 +202,55 @@ def _finding_validation_gate(
     return None, None
 
 
+_SENSITIVE_FIELD_NAME = re.compile(
+    r"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|"
+    r"password|authorization|private[_-]?key|secret|credential)",
+    re.IGNORECASE,
+)
+_SECRET_ASSIGNMENT = re.compile(
+    r"(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|"
+    r"password|authorization|secret)\\s*[:=]\\s*['\\"]?)([^\\s,'\";]{8,})"
+)
+_BEARER_SECRET = re.compile(r"(?i)(\\bBearer\\s+)([A-Za-z0-9._~+/=-]{8,})")
+_KNOWN_TOKEN_SHAPES = re.compile(
+    r"\\b(?:sk_live_|sk_test_|sk-|ghp_|github_pat_|gho_|ghu_|ghs_|ghr_|"
+    r"xox[baprs]-|AKIA)[A-Za-z0-9_-]{8,}\\b"
+)
+
+
+def _secret_fingerprint(value: str) -> str:
+    digest = hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest()[:12]
+    return f"[REDACTED sha256:{digest}]"
+
+
+def _redact_candidate_secrets(value: Any, field_name: str = "") -> Any:
+    """Redact likely credentials before blocked candidates are persisted as notes."""
+    if isinstance(value, dict):
+        return {
+            str(key): (
+                _secret_fingerprint(str(item))
+                if _SENSITIVE_FIELD_NAME.search(str(key)) and item is not None
+                else _redact_candidate_secrets(item, str(key))
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_candidate_secrets(item, field_name) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_candidate_secrets(item, field_name) for item in value)
+    if not isinstance(value, str):
+        return value
+    redacted = _SECRET_ASSIGNMENT.sub(
+        lambda match: match.group(1) + _secret_fingerprint(match.group(2)),
+        value,
+    )
+    redacted = _BEARER_SECRET.sub(
+        lambda match: match.group(1) + _secret_fingerprint(match.group(2)),
+        redacted,
+    )
+    return _KNOWN_TOKEN_SHAPES.sub(lambda match: _secret_fingerprint(match.group(0)), redacted)
+
+
 def _preserve_validation_candidate(
     title: str,
     candidate: dict[str, Any],
@@ -211,7 +261,7 @@ def _preserve_validation_candidate(
     payload = {
         "status": status,
         "reason": reason,
-        "candidate": candidate,
+        "candidate": _redact_candidate_secrets(candidate),
         "next_action": (
             "Continue validation and testing from another angle; do not delete this candidate."
         ),
