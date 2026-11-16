@@ -150,3 +150,39 @@ def test_blocked_candidate_notes_survive_hydration(monkeypatch, tmp_path) -> Non
     assert len(restored["notes"]) == 1
     assert restored["notes"][0]["title"] == "[NEEDS_VALIDATION] Candidate"
     assert "retained for follow-up" in restored["notes"][0]["content"]
+
+
+def test_preserved_candidate_note_redacts_secret_on_disk(monkeypatch, tmp_path) -> None:
+    raw_secret = "private-api-key-value-987654"
+    monkeypatch.setattr(notes_tools, "_notes_path", tmp_path / "notes.json")
+    monkeypatch.setattr(notes_tools, "_notes_storage", {})
+
+    result = _preserve_validation_candidate(
+        "Unverified API key",
+        {
+            "api_key": raw_secret,
+            "credential_type": "private",
+            "evidence": "Key was found in app.js",
+        },
+        "NEEDS_VALIDATION",
+        "Granted access has not been demonstrated.",
+    )
+
+    persisted = (tmp_path / "notes.json").read_text(encoding="utf-8")
+    assert result["success"] is True
+    assert raw_secret not in persisted
+    assert "[REDACTED sha256:" in persisted
+    assert '"credential_type": "private"' in persisted
+
+
+def test_missing_gate_classification_fails_closed() -> None:
+    status, reason = _finding_validation_gate(
+        impact_type=None,
+        impact_proven=True,
+        chain_complete=True,
+        credential_type="none",
+        credential_access_proven=False,
+    )
+
+    assert status == "NEEDS_VALIDATION"
+    assert reason is not None
