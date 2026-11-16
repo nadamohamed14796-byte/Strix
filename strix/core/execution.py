@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from agents.memory import Session, SQLiteSession
     from agents.result import RunResultBase
 
-    from strix.core.agents import AgentCoordinator, Status
+    from strix.core.agents import AgentCoordinator, ScanPhase, Status
 
 
 logger = logging.getLogger(__name__)
@@ -300,7 +300,7 @@ async def spawn_child_agent(
     task: str,
     skills: list[str],
     parent_history: list[Any],
-    phase: str | None = None,
+    phase: ScanPhase | None = None,
     event_sink: StreamEventSink | None = None,
     hooks: RunHooks[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
