@@ -4,6 +4,7 @@ from strix.tools.notes import tools as notes_tools
 from strix.tools.reporting.tool import (
     _finding_validation_gate,
     _preserve_validation_candidate,
+    _redact_candidate_secrets,
 )
 
 
@@ -101,3 +102,26 @@ def test_blocked_candidate_surfaces_note_persistence_failure(monkeypatch) -> Non
     assert result["success"] is False
     assert "persistence failed" in result["error"].lower()
     assert len(notes_tools._notes_storage) == 1
+
+
+def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
+    raw_api_key = "private-api-key-value-123456"
+    raw_bearer = "eyJhbGciOiJIUzI1NiJ9.secret.payload"
+    raw_github_token = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+
+    sanitized = _redact_candidate_secrets(
+        {
+            "api_key": raw_api_key,
+            "evidence": (
+                f"Authorization: Bearer {raw_bearer}; "
+                f"also found {raw_github_token}"
+            ),
+            "nested": [{"client_secret": raw_api_key}],
+        }
+    )
+    serialized = str(sanitized)
+
+    assert raw_api_key not in serialized
+    assert raw_bearer not in serialized
+    assert raw_github_token not in serialized
+    assert "[REDACTED sha256:" in serialized
