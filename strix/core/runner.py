@@ -344,9 +344,6 @@ async def run_strix_scan(
             for authorized_entry in incoming_scope.get("authorized_targets", []):
                 for source in authorized_entry.get("sources", []):
                     source["target_index"] = int(source.get("target_index", 0)) + offset
-            for ledger_entry in incoming_scope.get("target_ledger", []):
-                for source in ledger_entry.get("sources", []):
-                    source["target_index"] = int(source.get("target_index", 0)) + offset
             existing_ids = set(coordinator.target_ledger)
             fresh_ledger = [
                 dict(entry)
