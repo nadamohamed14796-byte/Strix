@@ -9,7 +9,7 @@ import math
 import webbrowser
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from strix.config import load_settings
 from strix.config.models import is_recommended_or_frontier_model
@@ -409,7 +409,7 @@ class TuiController:
             future = asyncio.run_coroutine_threadsafe(
                 self.coordinator.append_targets(target_infos), self.scan_loop
             )
-            result = await asyncio.wrap_future(future)
+            result = cast("dict[str, Any]", await asyncio.wrap_future(future))
         if not result.get("added"):
             self._append_message("Target is already in the active scan scope", "warning")
             return result
