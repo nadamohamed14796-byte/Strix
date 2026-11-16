@@ -141,22 +141,28 @@ async def _repair_session_tool_history(session: Session, agent_id: str) -> list[
     try:
         original = list(await session.get_items())
         repaired, changed = dedupe_history_call_ids(original)
-        if not changed:
-            return original
-        if await replace_session_items(session, repaired, expected_len=len(original)):
-            logger.warning(
-                "repaired incomplete tool-call history before resuming %s",
-                agent_id,
-            )
-            return repaired
-        logger.warning(
-            "session changed during tool-history repair for %s; leaving newer history untouched",
-            agent_id,
+        replaced = (
+            await replace_session_items(session, repaired, expected_len=len(original))
+            if changed
+            else False
         )
-        return original
     except Exception:
         logger.exception("could not validate session history before running %s", agent_id)
         return []
+
+    if not changed:
+        return original
+    if replaced:
+        logger.warning(
+            "repaired incomplete tool-call history before resuming %s",
+            agent_id,
+        )
+        return repaired
+    logger.warning(
+        "session changed during tool-history repair for %s; leaving newer history untouched",
+        agent_id,
+    )
+    return original
 
 
 async def _salvage_stream_to_session(
