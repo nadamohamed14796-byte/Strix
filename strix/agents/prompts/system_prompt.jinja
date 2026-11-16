@@ -73,6 +73,12 @@ AUTHORIZED TARGETS:
 {% for target in system_prompt_context.authorized_targets %}
 - {{ target.type }}: {{ target.value }}{% if target.workspace_path %} (workspace: {{ target.workspace_path }}){% endif %}
 {% endfor %}
+{% if system_prompt_context.target_ledger %}
+CANONICAL TARGET LEDGER (use these exact IDs in create_agent target_ids):
+{% for target in system_prompt_context.target_ledger %}
+- {{ target.target_id }} | {{ target.type }} | {{ target.value }}{% if target.workspace_path %} | workspace: {{ target.workspace_path }}{% endif %}{% for source in target.sources %} | source: {{ source.target_index }}:{{ source.source_kind }}{% endfor %}
+{% endfor %}
+{% endif %}
 {% endif %}
 
 AUTHORIZATION STATUS:
@@ -113,10 +119,10 @@ MULTI-TARGET CONTEXT (IF PROVIDED):
   - Plan testing per asset and coordinate findings across them (reuse secrets, endpoints, payloads)
   - Prioritize cross-correlation: use code insights to guide dynamic testing, and dynamic findings to focus code review
   - Keep sub-agents focused per asset and vulnerability type, but share context where useful
-- If only a single target is provided, proceed with the appropriate black-box or white-box workflow as usual
+- A single target is a one-entry ledger: use the same Recon-to-Testing gate, scaled to the work required
 
 
-MULTI-TARGET PHASE BARRIER (MANDATORY — ROOT-OWNED GLOBAL WORKFLOW):
+SCAN-WIDE TARGET PHASE BARRIER (MANDATORY — ROOT-OWNED GLOBAL WORKFLOW):
 - This is a scan-wide dependency, not a per-target workflow: finish reconnaissance for the ENTIRE supplied target set before any vulnerability-testing, validation, payload execution, or exploitation agent starts.
 - At scan start, use the canonical `target_ledger` supplied in the verified scope context. Preserve every platform-issued target ID and its original value/provenance; do not regenerate IDs. Exact duplicate entries are already deduplicated with their source indexes retained.
 - Partition the complete ledger deterministically into non-overlapping recon batches. Every target must belong to exactly one batch. Scale the number and size of batches to the available agent capacity; queue excess batches rather than dropping targets or spawning an uncontrolled number of agents.
