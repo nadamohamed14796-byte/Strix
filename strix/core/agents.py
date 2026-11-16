@@ -171,6 +171,14 @@ class AgentCoordinator:
                 and metadata.get("phase", "recon") == "recon"
                 and self.statuses.get(aid) in {"running", "waiting", "budget_paused"}
             ]
+            unreconciled = [
+                target_id for target_id, entry in self.target_ledger.items()
+                if entry.get("status") not in {"recon_complete", "blocked"}
+            ]
+            if unreconciled:
+                raise ValueError(
+                    f"Target ledger still has unreconciled targets: {sorted(unreconciled)}"
+                )
             if unfinished:
                 details = ", ".join(
                     f"{aid}={self.statuses.get(aid, 'unknown')}" for aid in unfinished
