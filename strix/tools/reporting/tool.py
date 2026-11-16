@@ -202,6 +202,56 @@ def _finding_validation_gate(
     return None, None
 
 
+
+_XSS_INDICATORS = re.compile(
+    r"\\b(?:xss|cross[ -]?site[ -]scripting)\\b|CWE-79",
+    re.IGNORECASE,
+)
+
+
+def _xss_validation_gate(
+    *,
+    title: str,
+    description: str,
+    technical_analysis: str,
+    cwe: str | None,
+    xss_validation: dict[str, Any] | None,
+) -> tuple[str | None, str | None]:
+    """Require source-to-sink, encoding, and browser execution proof for XSS."""
+    haystack = " ".join((title, description, technical_analysis, cwe or ""))
+    if not _XSS_INDICATORS.search(haystack):
+        return None, None
+    if not isinstance(xss_validation, dict):
+        return "NEEDS_VALIDATION", "XSS requires explicit source, encoding, sink, browser-execution, and affected-page evidence."
+    required_text = (
+        "source_location",
+        "source_to_sink_trace",
+        "output_context",
+        "encoding_assessment",
+        "sink_location",
+        "rendered_payload_evidence",
+        "browser_execution_evidence",
+    )
+    missing = [name for name in required_text if not str(xss_validation.get(name) or "").strip()]
+    required_flags = (
+        "source_reviewed",
+        "encoding_assessed",
+        "sink_reached",
+        "browser_execution_proven",
+    )
+    missing_flags = [name for name in required_flags if xss_validation.get(name) is not True]
+    pages = xss_validation.get("affected_pages")
+    if not isinstance(pages, list) or not any(str(page).strip() for page in pages):
+        missing.append("affected_pages")
+    if missing or missing_flags:
+        details = ", ".join(missing + missing_flags)
+        return (
+            "NEEDS_VALIDATION",
+            "XSS execution is not fully proven; missing evidence: " + details,
+        )
+    return None, None
+
+
 _SENSITIVE_FIELD_NAME = re.compile(
     r"(?:^|[_-])(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|"
     r"password|authorization|private[_-]?key|secret|credential(?:$|[_-](?:value|secret|token))|"
@@ -966,6 +1016,16 @@ async def _do_create(
         credential_type=credential_type,
         credential_access_proven=credential_access_proven,
     )
+    if not gate_status:
+        xss_status, xss_reason = _xss_validation_gate(
+            title=title,
+            description=description,
+            technical_analysis=technical_analysis,
+            cwe=cwe,
+            xss_validation=xss_validation,
+        )
+        if xss_status:
+            gate_status, gate_reason = xss_status, xss_reason
     if gate_status:
         candidate = {
             "finding_class": "dynamic",
