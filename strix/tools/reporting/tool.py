@@ -155,44 +155,93 @@ def _calculate_cvss(breakdown: dict[str, str]) -> tuple[float, str, str]:
 
 
 
-_VALID_GATE_IMPACT_TYPES = frozenset({'person', 'platform', 'credential', 'recon', 'other'})
-_VALID_GATE_CREDENTIAL_TYPES = frozenset({'none', 'public_client', 'private'})
+_VALID_GATE_IMPACT_TYPES = frozenset({"person", "platform", "credential", "recon", "other"})
+_VALID_GATE_CREDENTIAL_TYPES = frozenset({"none", "public_client", "private"})
 
 
-def _finding_validation_gate(*, impact_type, impact_proven, chain_complete, credential_type, credential_access_proven):
-    impact_type = (impact_type or '').strip().lower()
-    credential_type = (credential_type or 'none').strip().lower()
-    if impact_type not in _VALID_GATE_IMPACT_TYPES or credential_type not in _VALID_GATE_CREDENTIAL_TYPES:
-        return 'NEEDS_VALIDATION', 'Missing or invalid impact/credential classification.'
+def _finding_validation_gate(
+    *,
+    impact_type: str | None,
+    impact_proven: bool | None,
+    chain_complete: bool | None,
+    credential_type: str | None,
+    credential_access_proven: bool | None,
+) -> tuple[str | None, str | None]:
+    """Enforce proof of real impact and complete exploit chains before reporting."""
+    impact_type = (impact_type or "").strip().lower()
+    credential_type = (credential_type or "none").strip().lower()
+    if impact_type not in _VALID_GATE_IMPACT_TYPES:
+        return "NEEDS_VALIDATION", "Missing or invalid impact classification."
+    if credential_type not in _VALID_GATE_CREDENTIAL_TYPES:
+        return "NEEDS_VALIDATION", "Invalid credential classification."
     if impact_proven is not True:
-        return 'INFORMATIONAL', 'No actual security consequence has been demonstrated.'
-    if impact_type in {'recon', 'other'}:
-        return 'INFORMATIONAL', 'Reconnaissance or unclassified information alone is not reportable.'
+        return "INFORMATIONAL", "No actual security consequence has been demonstrated."
+    if impact_type in {"recon", "other"}:
+        return "INFORMATIONAL", "Reconnaissance or unclassified information alone is not reportable."
     if chain_complete is not True:
-        return 'NEEDS_CHAIN', 'The required exploit chain is incomplete.'
-    if credential_type == 'private' and credential_access_proven is not True:
-        return 'NEEDS_VALIDATION', 'The private credential access it grants has not been demonstrated.'
-    if impact_type == 'credential' and (credential_type != 'private' or credential_access_proven is not True):
-        return 'INFORMATIONAL', 'A public client-side value or unverified credential is not proof of unauthorized access.'
+        return "NEEDS_CHAIN", "The required exploit chain is incomplete."
+    if credential_type == "private" and credential_access_proven is not True:
+        return (
+            "NEEDS_VALIDATION",
+            "The private credential access it grants has not been demonstrated.",
+        )
+    if impact_type == "credential" and (
+        credential_type != "private" or credential_access_proven is not True
+    ):
+        return (
+            "INFORMATIONAL",
+            "A public client-side value or unverified credential is not proof of unauthorized access.",
+        )
     return None, None
 
 
-def _preserve_validation_candidate(title, candidate, status, reason):
-    payload = {'status': status, 'reason': reason, 'candidate': candidate,
-        'next_action': 'Continue validation and testing from another angle; do not delete this candidate.'}
+def _preserve_validation_candidate(
+    title: str,
+    candidate: dict[str, Any],
+    status: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Persist blocked candidates as scan notes; never silently discard them."""
+    payload = {
+        "status": status,
+        "reason": reason,
+        "candidate": candidate,
+        "next_action": (
+            "Continue validation and testing from another angle; do not delete this candidate."
+        ),
+    }
     try:
         from strix.tools.notes.tools import _create_note_impl
-        saved = _create_note_impl(title='[' + status + '] ' + str(title or 'Untitled finding')[:180],
+
+        saved = _create_note_impl(
+            title=f"[{status}] {str(title or 'Untitled finding')[:180]}",
             content=json.dumps(payload, ensure_ascii=False, default=str, indent=2),
-            category='findings', tags=['finding-validation', status.lower()])
-    except Exception as exc:
-        logger.exception('Could not preserve blocked finding')
-        return {'success': False, 'error': f'Gate blocked report and note persistence failed: {exc}'}
-    if not saved.get('success'):
-        return {'success': False, 'error': 'Gate blocked report and note persistence failed: ' + str(saved.get('error'))}
-    return {'success': True, 'action': 'preserved_not_reported', 'status': status,
-        'reason': reason, 'note_id': saved.get('note_id'),
-        'message': 'Candidate preserved in findings notes; continue testing the surface.'}
+            category="findings",
+            tags=["finding-validation", status.lower()],
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Could not preserve blocked finding")
+        return {
+            "success": False,
+            "error": f"Gate blocked report and note persistence failed: {exc}",
+        }
+    if not saved.get("success"):
+        return {
+            "success": False,
+            "error": (
+                "Gate blocked report and note persistence failed: "
+                + str(saved.get("error"))
+            ),
+        }
+    return {
+        "success": True,
+        "action": "preserved_not_reported",
+        "status": status,
+        "reason": reason,
+        "note_id": saved.get("note_id"),
+        "message": "Candidate preserved in findings notes; continue testing the surface.",
+    }
+
 
 _REQUIRED_FIELDS = {
     "title": "Title cannot be empty",
@@ -851,9 +900,32 @@ async def _do_create(
     agent_id: str | None = None,
     agent_name: str | None = None,
 ) -> dict[str, Any]:
-    gate_status, gate_reason = _finding_validation_gate(impact_type=impact_type, impact_proven=impact_proven, chain_complete=chain_complete, credential_type=credential_type, credential_access_proven=credential_access_proven)
+    gate_status, gate_reason = _finding_validation_gate(
+        impact_type=impact_type,
+        impact_proven=impact_proven,
+        chain_complete=chain_complete,
+        credential_type=credential_type,
+        credential_access_proven=credential_access_proven,
+    )
     if gate_status:
-        return _preserve_validation_candidate(title, {'finding_class':'dynamic','description':description,'impact':impact,'target':target,'evidence':evidence,'poc_description':poc_description,'poc_script_code':poc_script_code,'http_exchange_ids':http_exchange_ids,'impact_type':impact_type,'impact_proven':impact_proven,'chain_complete':chain_complete,'credential_type':credential_type,'credential_access_proven':credential_access_proven}, gate_status, gate_reason)
+        candidate = {
+            "finding_class": "dynamic",
+            "description": description,
+            "impact": impact,
+            "target": target,
+            "evidence": evidence,
+            "poc_description": poc_description,
+            "poc_script_code": poc_script_code,
+            "http_exchange_ids": http_exchange_ids,
+            "impact_type": impact_type,
+            "impact_proven": impact_proven,
+            "chain_complete": chain_complete,
+            "credential_type": credential_type,
+            "credential_access_proven": credential_access_proven,
+        }
+        return _preserve_validation_candidate(
+            title, candidate, gate_status, gate_reason or "Validation gate blocked the report."
+        )
     errors: list[str] = _validate_required_text(
         {
             "title": title,
@@ -1973,9 +2045,34 @@ async def _do_create_dependency(  # noqa: PLR0912, PLR0915
     agent_id: str | None = None,
     agent_name: str | None = None,
 ) -> dict[str, Any]:
-    gate_status, gate_reason = _finding_validation_gate(impact_type=impact_type, impact_proven=impact_proven, chain_complete=chain_complete, credential_type=credential_type, credential_access_proven=credential_access_proven)
+    gate_status, gate_reason = _finding_validation_gate(
+        impact_type=impact_type,
+        impact_proven=impact_proven,
+        chain_complete=chain_complete,
+        credential_type=credential_type,
+        credential_access_proven=credential_access_proven,
+    )
     if gate_status:
-        return _preserve_validation_candidate(title, {'finding_class':'dependency_cve','description':description,'target':target,'cve':cve,'package_name':package_name,'installed_version':installed_version,'impact':impact,'manifest_path':manifest_path,'reachability':reachability,'reachability_evidence':reachability_evidence,'impact_type':impact_type,'impact_proven':impact_proven,'chain_complete':chain_complete,'credential_type':credential_type,'credential_access_proven':credential_access_proven}, gate_status, gate_reason)
+        candidate = {
+            "finding_class": "dependency_cve",
+            "description": description,
+            "target": target,
+            "cve": cve,
+            "package_name": package_name,
+            "installed_version": installed_version,
+            "impact": impact,
+            "manifest_path": manifest_path,
+            "reachability": reachability,
+            "reachability_evidence": reachability_evidence,
+            "impact_type": impact_type,
+            "impact_proven": impact_proven,
+            "chain_complete": chain_complete,
+            "credential_type": credential_type,
+            "credential_access_proven": credential_access_proven,
+        }
+        return _preserve_validation_candidate(
+            title, candidate, gate_status, gate_reason or "Validation gate blocked the report."
+        )
     errors: list[str] = []
     required = {
         "title": title,
