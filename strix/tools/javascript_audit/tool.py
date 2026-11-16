@@ -6,7 +6,6 @@ fetch or execute assets; workers perform analysis and record evidence here.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 from pathlib import Path
