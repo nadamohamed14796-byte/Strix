@@ -11,11 +11,20 @@ from datetime import UTC, datetime
 from typing import Any, Literal, get_args
 
 from agents import RunContextWrapper, function_tool
+from pydantic import BaseModel, ConfigDict
 
 from strix.core.agents import Status, coordinator_from_context
 from strix.core.execution import notify_parent_on_terminal
 from strix.core.hooks import LLM_TURN_KEY
 from strix.skills import validate_requested_skills
+
+
+class ReconTargetOutcome(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_id: str
+    status: Literal["complete", "blocked"]
+    summary: str
 
 
 _ACTIVE_STATUSES: frozenset[str] = frozenset({"running", "waiting"})
@@ -626,7 +635,7 @@ async def agent_finish(
     success: bool = True,
     report_to_parent: bool = True,
     final_recommendations: list[str] | None = None,
-    target_outcomes: list[dict[str, str]] | None = None,
+    target_outcomes: list[ReconTargetOutcome] | None = None,
 ) -> str:
     """Subagent termination — post a completion report to the parent.
 
@@ -695,7 +704,10 @@ async def agent_finish(
         and coordinator.metadata.get(me, {}).get("target_ids")
     ):
         try:
-            await coordinator.record_target_outcomes(me, list(target_outcomes or []))
+            await coordinator.record_target_outcomes(
+                me,
+                [outcome.model_dump() for outcome in target_outcomes or []],
+            )
         except ValueError as exc:
             return json.dumps(
                 {"success": False, "error": str(exc), "agent_completed": False},
