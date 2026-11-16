@@ -1541,6 +1541,82 @@ async def test_target_ledger_survives_resume_and_rejects_scope_drift() -> None:
 
 
 @pytest.mark.asyncio
+async def test_target_ledger_appends_new_targets_without_resetting_existing_progress() -> None:
+    coordinator = AgentCoordinator()
+    original = [
+        {
+            "target_id": "target-a",
+            "type": "web_application",
+            "value": "https://a.example",
+            "workspace_path": "",
+        }
+    ]
+    await coordinator.initialize_target_ledger(original)
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register(
+        "recon-a", "Recon A", parent_id="root", phase="recon", target_ids=["target-a"]
+    )
+    await coordinator.record_target_outcomes(
+        "recon-a",
+        [{"target_id": "target-a", "status": "complete", "summary": "Already inventoried"}],
+    )
+    await coordinator.set_status("recon-a", "completed")
+
+    await coordinator.initialize_target_ledger(
+        [
+            *original,
+            {
+                "target_id": "target-b",
+                "type": "web_application",
+                "value": "https://b.example",
+                "workspace_path": "",
+            },
+        ]
+    )
+
+    assert coordinator.target_ledger["target-a"]["status"] == "recon_complete"
+    assert coordinator.target_ledger["target-a"]["assigned_to"] == "recon-a"
+    assert coordinator.target_ledger["target-a"]["attempts"] == 1
+    assert coordinator.target_ledger["target-a"]["recon_summary"] == "Already inventoried"
+    assert coordinator.target_ledger["target-b"]["status"] == "queued"
+    assert coordinator.target_ledger["target-b"]["assigned_to"] is None
+    assert coordinator.target_ledger["target-b"]["attempts"] == 0
+
+
+@pytest.mark.asyncio
+async def test_target_ledger_rejects_append_after_testing_begins() -> None:
+    coordinator = AgentCoordinator()
+    original = [
+        {
+            "target_id": "target-a",
+            "type": "web_application",
+            "value": "https://a.example",
+            "workspace_path": "",
+        }
+    ]
+    await coordinator.initialize_target_ledger(original)
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="Initial target Recon is complete.",
+    )
+
+    with pytest.raises(ValueError, match="before the scan enters Testing"):
+        await coordinator.initialize_target_ledger(
+            [
+                *original,
+                {
+                    "target_id": "target-b",
+                    "type": "web_application",
+                    "value": "https://b.example",
+                    "workspace_path": "",
+                },
+            ]
+        )
+
+
+@pytest.mark.asyncio
 async def test_spawn_child_agent_includes_assigned_target_ids_in_task(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Any,
