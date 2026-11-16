@@ -1613,6 +1613,96 @@ async def test_target_ledger_rejects_append_after_testing_begins() -> None:
         )
 
 
+
+@pytest.mark.asyncio
+async def test_live_target_append_preserves_progress_and_extends_recon_barrier() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.initialize_target_ledger(
+        [{"target_id": "target-a", "type": "web_application", "value": "https://a.example"}]
+    )
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register(
+        "recon-a", "Recon A", parent_id="root", phase="recon", target_ids=["target-a"]
+    )
+    await coordinator.record_target_outcomes(
+        "recon-a",
+        [{"target_id": "target-a", "status": "complete", "summary": "Initial Recon complete"}],
+    )
+    await coordinator.set_status("recon-a", "completed")
+
+    persisted: list[bool] = []
+
+    def persist_scope() -> None:
+        assert "target-b" not in coordinator.target_ledger
+        persisted.append(True)
+
+    added = await coordinator.append_target_entries(
+        [{"target_id": "target-b", "type": "web_application", "value": "https://b.example"}],
+        persist=persist_scope,
+    )
+
+    assert added == ["target-b"]
+    assert persisted == [True]
+    assert coordinator.target_ledger["target-a"]["status"] == "recon_complete"
+    assert coordinator.target_ledger["target-a"]["recon_summary"] == "Initial Recon complete"
+    assert coordinator.target_ledger["target-b"]["status"] == "queued"
+
+    with pytest.raises(ValueError, match="unreconciled"):
+        await coordinator.advance_scan_phase(
+            "root",
+            confirmed_all_targets_reconciled=True,
+            reconciliation_summary="All targets reconciled.",
+        )
+
+    await coordinator.register(
+        "recon-b", "Recon B", parent_id="root", phase="recon", target_ids=["target-b"]
+    )
+    await coordinator.record_target_outcomes(
+        "recon-b",
+        [{"target_id": "target-b", "status": "complete", "summary": "Appended target inventoried"}],
+    )
+    await coordinator.set_status("recon-b", "completed")
+    result = await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="Both original and appended targets are reconciled.",
+    )
+
+    assert result["scan_phase"] == "testing"
+
+
+@pytest.mark.asyncio
+async def test_live_target_append_is_rejected_after_testing_starts() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.initialize_target_ledger(
+        [{"target_id": "target-a", "type": "web_application", "value": "https://a.example"}]
+    )
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register(
+        "recon-a", "Recon A", parent_id="root", phase="recon", target_ids=["target-a"]
+    )
+    await coordinator.record_target_outcomes(
+        "recon-a",
+        [{"target_id": "target-a", "status": "complete", "summary": "Initial Recon complete"}],
+    )
+    await coordinator.set_status("recon-a", "completed")
+    await coordinator.advance_scan_phase(
+        "root",
+        confirmed_all_targets_reconciled=True,
+        reconciliation_summary="Initial target Recon is complete.",
+    )
+
+    persisted: list[bool] = []
+    with pytest.raises(ValueError, match="while the scan is in Recon"):
+        await coordinator.append_target_entries(
+            [{"target_id": "target-b", "type": "web_application", "value": "https://b.example"}],
+            persist=lambda: persisted.append(True),
+        )
+
+    assert persisted == []
+    assert "target-b" not in coordinator.target_ledger
+
+
 @pytest.mark.asyncio
 async def test_spawn_child_agent_includes_assigned_target_ids_in_task(
     monkeypatch: pytest.MonkeyPatch,
