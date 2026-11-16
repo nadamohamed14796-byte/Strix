@@ -337,7 +337,9 @@ def _reporting_phase_error(ctx: RunContextWrapper) -> str | None:
         return json.dumps(
             {
                 "success": False,
-                "error": "Finding reports are disabled until the root opens the scan-wide Testing phase",
+                "error": (
+                    "Finding reports are disabled until the root opens the scan-wide Testing phase"
+                ),
             },
             ensure_ascii=False,
         )
