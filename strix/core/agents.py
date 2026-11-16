@@ -94,12 +94,16 @@ class AgentCoordinator:
         async with self._lock:
             if self._target_ledger_initialized:
                 if set(normalized) != set(self.target_ledger):
-                    raise ValueError("The authorized target set changed; refusing to resume a different scope")
+                    raise ValueError(
+                        "The authorized target set changed; refusing to resume a different scope"
+                    )
                 for target_id, entry in normalized.items():
                     current = self.target_ledger[target_id]
                     for key in ("type", "value", "workspace_path"):
                         if current.get(key, "") != entry.get(key, ""):
-                            raise ValueError(f"Target identity changed for {target_id}; refusing scope drift")
+                            raise ValueError(
+                                f"Target identity changed for {target_id}; refusing scope drift"
+                            )
             else:
                 self.target_ledger = normalized
                 self._target_ledger_initialized = True
@@ -126,7 +130,9 @@ class AgentCoordinator:
                 if target_id in received:
                     raise ValueError(f"Duplicate Recon outcome for target {target_id}")
                 if status not in {"complete", "blocked"} or not summary:
-                    raise ValueError(f"Invalid Recon outcome for target {target_id or '(missing ID)'}")
+                    raise ValueError(
+                        f"Invalid Recon outcome for target {target_id or '(missing ID)'}"
+                    )
                 received[target_id] = (status, summary)
             if set(received) != assigned:
                 missing = sorted(assigned - set(received))
@@ -296,7 +302,9 @@ class AgentCoordinator:
                 raise ValueError("A child task cannot contain duplicate target IDs")
             if parent_id is not None and self.target_ledger:
                 if not normalized_target_ids:
-                    raise ValueError("Child tasks must declare target_ids when the scan has a target ledger")
+                    raise ValueError(
+                        "Child tasks must declare target_ids when the scan has a target ledger"
+                    )
                 unknown = sorted(set(normalized_target_ids) - set(self.target_ledger))
                 if unknown:
                     raise ValueError(f"Child task references unknown target IDs: {unknown}")
@@ -307,16 +315,23 @@ class AgentCoordinator:
                     ]
                     if blocked:
                         raise ValueError(
-                            f"Testing cannot be assigned to targets without completed Recon: {blocked}"
+                            "Testing cannot be assigned to targets without completed Recon: "
+                            f"{blocked}"
                         )
                 if assigned_phase == "recon":
                     for target_id in normalized_target_ids:
                         entry = self.target_ledger[target_id]
                         if entry.get("status") in {"recon_complete", "blocked"}:
-                            raise ValueError(f"Target {target_id} already has a terminal Recon outcome")
+                            raise ValueError(
+                                f"Target {target_id} already has a terminal Recon outcome"
+                            )
                         owner = entry.get("assigned_to")
-                        if owner and self.statuses.get(owner) in {"running", "waiting", "budget_paused"}:
-                            raise ValueError(f"Target {target_id} is already assigned to active worker {owner}")
+                        if owner and self.statuses.get(owner) in {
+                            "running", "waiting", "budget_paused"
+                        }:
+                            raise ValueError(
+                                f"Target {target_id} is already assigned to active worker {owner}"
+                            )
             self.statuses[agent_id] = "running"
             self.parent_of[agent_id] = parent_id
             self.names[agent_id] = name
