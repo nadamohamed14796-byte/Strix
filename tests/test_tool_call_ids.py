@@ -206,6 +206,21 @@ def test_history_dedupe_keeps_outputs_paired_with_their_call() -> None:
     assert rebuilt[3]["output"] == "second"
 
 
+
+def test_history_dedupe_pairs_typed_call_with_dictionary_output() -> None:
+    call = ResponseFunctionToolCall(
+        call_id="call_a", name="a", arguments="{}", type="function_call"
+    )
+    items = [
+        call,
+        {"type": "function_call_output", "call_id": "call_a", "output": "paired"},
+    ]
+
+    rebuilt, changed = dedupe_history_call_ids(items)
+
+    assert not changed
+    assert rebuilt == items
+
 def test_history_dedupe_pairs_parallel_calls_by_order() -> None:
     items = [
         {"type": "function_call", "call_id": "dup", "name": "a", "arguments": "{}"},
