@@ -194,7 +194,6 @@ def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
     authorized: list[dict[str, Any]] = []
     target_ledger: list[dict[str, Any]] = []
     by_identity: dict[tuple[str, str, str], dict[str, Any]] = {}
-    ledger_by_id: dict[str, dict[str, Any]] = {}
     value_keys = {
         "repository": "target_repo",
         "local_code": "target_path",
@@ -234,7 +233,6 @@ def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
         by_identity[identity] = authorized_entry
         authorized.append(authorized_entry)
         target_ledger.append(ledger_entry)
-        ledger_by_id[target_id] = ledger_entry
 
     for index, target in enumerate(scan_config.get("targets", []) or []):
         ttype = target.get("type", "unknown")
