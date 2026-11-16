@@ -123,6 +123,93 @@ async def record_javascript_asset(
     )
 
 
+@function_tool(timeout=60)
+async def record_javascript_assets(
+    asset_urls: list[str],
+    source: str = "crawler",
+) -> str:
+    """Bulk-import JavaScript URLs from crawler output or recursive reference discovery.
+
+    Pass only absolute HTTP(S) URLs already confirmed in the authorized scope.
+    Use this after parsing Katana/headless crawler output and again after
+    discovering HTML script references, imports, workers, or dynamic chunks.
+    Each URL is recorded separately; identical content URLs are not collapsed.
+    """
+    if not asset_urls:
+        return json.dumps({"success": True, "recorded": 0, "tracked_assets": 0})
+    if len(asset_urls) > 5000:
+        return json.dumps({
+            "success": False,
+            "error": "Maximum 5000 URLs per batch; split the inventory into smaller batches",
+        })
+    source = source.strip()[:200] or "unspecified"
+    normalized: list[str] = []
+    invalid: list[str] = []
+    for value in asset_urls:
+        if not isinstance(value, str):
+            invalid.append(str(value)[:300])
+            continue
+        url = value.strip()
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+        ):
+            invalid.append(url[:300])
+            continue
+        normalized.append(url)
+    if invalid:
+        return json.dumps({
+            "success": False,
+            "error": "Batch rejected; every entry must be an absolute HTTP(S) URL without embedded credentials",
+            "invalid_count": len(invalid),
+            "invalid_preview": invalid[:10],
+        })
+    path = _ledger_path()
+    if path is None:
+        return json.dumps({
+            "success": False,
+            "error": "Scan report state is unavailable; inventory was not recorded",
+        })
+    unique_urls = list(dict.fromkeys(normalized))
+    async with _LOCK:
+        try:
+            data = _load(path)
+            assets = data["assets"]
+            for url in unique_urls:
+                previous = assets.get(url, {})
+                sources = list(previous.get("sources", []))
+                if source not in sources:
+                    sources.append(source)
+                assets[url] = {
+                    "url": url,
+                    "status": "discovered",
+                    "notes": previous.get("notes", ""),
+                    "reason": "",
+                    "content_sha256": previous.get("content_sha256", ""),
+                    "sources": sources,
+                }
+            if unique_urls:
+                data["inventory_complete"] = False
+            data["updated_count"] = len(assets)
+            _save(path, data)
+        except (OSError, RuntimeError, TypeError) as exc:
+            logger.exception("Failed to bulk-import JavaScript assets")
+            return json.dumps({
+                "success": False,
+                "error": f"Could not persist JavaScript inventory: {exc}",
+            })
+    return json.dumps({
+        "success": True,
+        "recorded": len(unique_urls),
+        "duplicates_in_batch": len(normalized) - len(unique_urls),
+        "tracked_assets": len(assets),
+        "inventory_complete": False,
+    }, ensure_ascii=False)
+
+
 @function_tool(timeout=30)
 async def complete_javascript_inventory(ctx: RunContextWrapper) -> str:
     """Mark recursive JavaScript discovery complete after the crawl/import queue is exhausted.
