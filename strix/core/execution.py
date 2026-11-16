@@ -311,10 +311,15 @@ async def spawn_child_agent(
 
     assigned_target_ids = list(target_ids or [])
     if assigned_target_ids:
+        ownership_note = (
+            "Return one Recon outcome for each ID."
+            if phase == "recon"
+            else "Keep all testing tasks, findings, and evidence tied to these IDs."
+        )
         task = (
             f"{task.rstrip()}\n\n"
             "Assigned canonical target IDs (exact set): "
-            f"{', '.join(assigned_target_ids)}. Return one Recon outcome for each ID."
+            f"{', '.join(assigned_target_ids)}. {ownership_note}"
         )
 
     child_id = uuid.uuid4().hex[:8]
