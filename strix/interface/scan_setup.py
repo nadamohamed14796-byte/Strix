@@ -166,7 +166,7 @@ def prepare_resume_target_additions(
     args: argparse.Namespace,
     additions: list[dict[str, Any]],
 ) -> None:
-    """Append newly authorized web/source targets to an existing Recon run.
+    """Append newly authorized web/IP targets to an existing Recon run.
 
     Existing target records and ledger progress are preserved. The coordinator
     performs the authoritative identity check again when the run is restored.
@@ -216,9 +216,8 @@ def prepare_resume_target_additions(
 
     args.targets_info = [*existing, *fresh]
 
-    # Update only the two fields that describe authorized targets and their
-    # staged sources. Preserve timestamps, instructions, report state and all
-    # other metadata from the original run record.
+    # Update only the target list. Preserve timestamps, instructions, report
+    # state, local sources, and all other metadata from the original run record.
     record = read_run_record(run_dir)
     record["targets_info"] = args.targets_info
     write_run_record(run_dir, record)
