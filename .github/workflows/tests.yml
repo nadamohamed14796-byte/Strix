@@ -37,6 +37,11 @@ jobs:
       - name: Ruff lint
         run: uv run ruff check .
 
+      - name: Preview controller formatting
+        run: |
+          uv run ruff format strix/interface/tui/backend/controller.py
+          git diff -- strix/interface/tui/backend/controller.py
+
       - name: Ruff format check
         run: uv run ruff format --check .
 
