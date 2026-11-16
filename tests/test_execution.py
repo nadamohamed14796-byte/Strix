@@ -1292,7 +1292,7 @@ async def test_scan_phase_gate_requires_root_reconciliation_and_completed_recon_
     await coordinator.register("root", "Root", parent_id=None)
     await coordinator.register("recon-a", "Recon A", parent_id="root", phase="recon")
 
-    with pytest.raises(ValueError, match="Only the root agent"):
+    with pytest.raises(ValueError, match="Only a registered root agent"):
         await coordinator.advance_scan_phase(
             "recon-a",
             confirmed_all_targets_reconciled=True,
