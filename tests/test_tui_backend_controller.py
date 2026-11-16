@@ -371,7 +371,7 @@ async def test_live_target_command_appends_to_active_recon_scope() -> None:
 
 
 @pytest.mark.asyncio
-async def test_live_target_command_rejects_workspace_and_api_spec_targets() -> None:
+async def test_live_target_command_rejects_workspace_and_api_spec_targets(tmp_path: Path) -> None:
     class Coordinator:
         async def append_targets(self, _entries: list[dict[str, object]]) -> dict[str, object]:
             raise AssertionError("unsupported targets must be rejected before ledger mutation")
@@ -385,7 +385,7 @@ async def test_live_target_command_rejects_workspace_and_api_spec_targets() -> N
     with pytest.raises(ValueError, match="web applications and IP addresses only"):
         await controller.handle(
             "agent.send_message",
-            {"agent_id": "root", "message": "/target /tmp/source-repo"},
+            {"agent_id": "root", "message": f"/target {tmp_path}"},
         )
 
 
