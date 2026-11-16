@@ -57,6 +57,33 @@ def _do_finish(
                 "message": "Scan completed (not persisted)",
                 "warning": "Results could not be persisted - report state unavailable",
             }
+        # If JavaScript inventory was initialized, do not silently finish while
+        # discovered in-scope assets remain unaccounted for. Scans with no JS
+        # assets (and therefore no ledger) retain the original finish behavior.
+        from strix.tools.javascript_audit.tool import javascript_audit_status
+
+        audit = javascript_audit_status(report_state.get_run_dir())
+        if audit["initialized"] and (
+            not audit["inventory_complete"] or audit["pending"]
+        ):
+            pending_preview = audit["pending"][:20]
+            return {
+                "success": False,
+                "scan_completed": False,
+                "error": (
+                    "JavaScript audit is incomplete. Finish recursive inventory, "
+                    "then inspect every discovered asset individually and record "
+                    "analyzed/failed/skipped status with a reason where required."
+                ),
+                "javascript_audit": {
+                    "inventory_complete": audit["inventory_complete"],
+                    "total": audit["total"],
+                    "pending_count": len(audit["pending"]),
+                    "pending_assets": pending_preview,
+                    "truncated": len(audit["pending"]) > len(pending_preview),
+                },
+            }
+
         report_state.update_scan_final_fields(
             executive_summary=executive_summary.strip(),
             methodology=methodology.strip(),
@@ -80,6 +107,9 @@ def _do_finish(
             "vulnerabilities_found": vuln_count,
         }
         result.update(coverage_summary)
+        if audit["initialized"]:
+            result["javascript_assets_audited"] = audit["total"]
+            result["javascript_audit_gaps"] = audit["terminal"]
         return result
 
 
