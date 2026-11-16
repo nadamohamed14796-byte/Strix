@@ -29,8 +29,6 @@ from strix.interface.utils import is_subscription_run
 
 
 if TYPE_CHECKING:
-    import argparse
-
     from strix.report.state import ReportState
 
 
