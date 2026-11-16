@@ -289,6 +289,7 @@ async def run_strix_scan(
 
         scope_context = build_scope_context(scan_config)
         root_context = _merge_root_prompt_context(scope_context, extra_system_prompt_context)
+        await coordinator.initialize_target_ledger(root_context.get("target_ledger", []))
         root_instructions = _compose_root_instructions_override(
             root_instructions_override,
             skills=skills,
