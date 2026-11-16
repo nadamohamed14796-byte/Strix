@@ -285,6 +285,17 @@ def test_new_skill_files_load() -> None:
         assert loaded.get(key), f"{name} failed to load"
 
 
+
+def test_javascript_asset_analysis_skill_loads_and_requires_complete_coverage() -> None:
+    loaded = load_skills(["analysis/javascript_attack_surface"])
+    body = loaded.get("javascript_attack_surface", "")
+    assert body
+    assert "EVERY discovered in-scope JavaScript asset" in body
+    assert "Do not choose files based on names" in body
+    assert "The analyst works asynchronously" in body
+    assert "resume from unfinished entries" in body.lower() or "resume only unfinished entries" in body.lower()
+
+
 def test_skill_turn_limit_matches_bare_and_qualified_names(tmp_path: Path) -> None:
     _write_skill(tmp_path, "pr_review", "investigator", "---\nname: investigator\n---\nx")
     _write_skill(tmp_path, "pr_review", "validator", "---\nname: validator\n---\nx")
