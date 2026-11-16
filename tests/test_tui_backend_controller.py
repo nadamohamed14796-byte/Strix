@@ -339,6 +339,56 @@ async def test_start_rejects_concurrent_and_repeated_submissions() -> None:
         await controller.handle("setup.start", {})
 
 
+
+@pytest.mark.asyncio
+async def test_live_target_command_appends_to_active_recon_scope() -> None:
+    class Coordinator:
+        def __init__(self) -> None:
+            self.entries: list[dict[str, object]] = []
+
+        async def append_targets(self, entries: list[dict[str, object]]) -> dict[str, object]:
+            self.entries.extend(entries)
+            return {"added": True, "target_ids": ["target-new"], "total": 2}
+
+    coordinator = Coordinator()
+    controller = TuiController(args(), coordinator=coordinator)
+    controller.setup_mode = False
+    controller.scan_started = True
+    controller.scan_state = "running"
+    controller.set_runtime(scan_loop=asyncio.get_running_loop())
+
+    result = await controller.handle(
+        "agent.send_message",
+        {"agent_id": "root", "message": "/target https://new.example"},
+    )
+
+    assert result["added"] is True
+    assert result["target"] == "https://new.example"
+    assert controller.targets == ["https://new.example"]
+    assert controller.args.targets_info[0]["type"] == "web_application"
+    assert coordinator.entries[0]["original"] == "https://new.example"
+    assert controller.snapshot()["target_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_live_target_command_rejects_workspace_and_api_spec_targets() -> None:
+    class Coordinator:
+        async def append_targets(self, _entries: list[dict[str, object]]) -> dict[str, object]:
+            raise AssertionError("unsupported targets must be rejected before ledger mutation")
+
+    controller = TuiController(args(), coordinator=Coordinator())
+    controller.setup_mode = False
+    controller.scan_started = True
+    controller.scan_state = "running"
+    controller.set_runtime(scan_loop=asyncio.get_running_loop())
+
+    with pytest.raises(ValueError, match="web applications and IP addresses only"):
+        await controller.handle(
+            "agent.send_message",
+            {"agent_id": "root", "message": "/target /tmp/source-repo"},
+        )
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status", ["completed", "failed", "crashed", "stopped"])
 async def test_stop_rejects_terminal_agents(status: str) -> None:
