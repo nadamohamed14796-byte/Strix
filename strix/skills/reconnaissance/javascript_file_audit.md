@@ -16,7 +16,7 @@ For Katana JSONL, first inspect one record to confirm the schema, then extract a
 
 ```bash
 jq -r '.. | strings | select(test("^https?://"; "i"))' crawl/katana.jsonl \
-  | grep -Ei '\\.(js|mjs|cjs)([?#]|$)' \
+  | grep -Ei '\.(js|mjs|cjs)([?#]|$)' \
   | sort -u > crawl/javascript-candidates.txt
 ```
 
