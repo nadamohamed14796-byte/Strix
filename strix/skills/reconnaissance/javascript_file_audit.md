@@ -11,6 +11,16 @@ Use this skill after web crawling and whenever source files, script URLs, source
 
 - Preserve the raw crawler output (Katana JSONL and any headless/XHR output) as evidence.
 - Immediately parse each crawler pass and submit all in-scope JavaScript URLs to `record_javascript_assets` in batches (up to 5000 URLs per call), with a source label identifying the crawler/output. Repeat after each recursive import/chunk-discovery pass; this makes the live ledger reflect crawler discoveries rather than relying on a final manual summary.
+
+For Katana JSONL, first inspect one record to confirm the schema, then extract absolute candidate URLs from JSON string fields, filter JavaScript extensions, verify each candidate against the active scope, and submit the in-scope list:
+
+```bash
+jq -r '.. | strings | select(test("^https?://"; "i"))' crawl/katana.jsonl \
+  | grep -Ei '\\.(js|mjs|cjs)([?#]|$)' \
+  | sort -u > crawl/javascript-candidates.txt
+```
+
+Do not bulk-register every string blindly: URLs found inside bundles may point to third parties. Apply the active scope rules before calling the ledger tool. Parse referenced `.map` URLs separately and include only same-scope source maps.
 - Extract every unique absolute HTTP(S) URL whose path has a JavaScript extension, including `.js`, `.mjs`, and `.cjs`; also inspect HTML script references and JavaScript module imports found in fetched responses.
 - Include versioned bundles, chunk files, dynamically loaded scripts, and same-origin source maps when their URLs are explicitly referenced by in-scope responses.
 - Resolve relative references against the response URL. Do not invent hostnames or follow references outside the system-verified scope.
