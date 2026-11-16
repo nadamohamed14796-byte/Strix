@@ -123,6 +123,33 @@ async def record_javascript_asset(
     )
 
 
+def _merge_discovered_assets(
+    data: dict[str, Any],
+    asset_urls: list[str],
+    source: str,
+) -> int:
+    """Merge validated source URLs while preserving per-URL provenance."""
+    assets = data["assets"]
+    unique_urls = list(dict.fromkeys(asset_urls))
+    for url in unique_urls:
+        previous = assets.get(url, {})
+        sources = list(previous.get("sources", []))
+        if source not in sources:
+            sources.append(source)
+        assets[url] = {
+            "url": url,
+            "status": "discovered",
+            "notes": previous.get("notes", ""),
+            "reason": "",
+            "content_sha256": previous.get("content_sha256", ""),
+            "sources": sources,
+        }
+    if unique_urls:
+        data["inventory_complete"] = False
+    data["updated_count"] = len(assets)
+    return len(unique_urls)
+
+
 @function_tool(timeout=60)
 async def record_javascript_assets(
     asset_urls: list[str],
@@ -177,23 +204,8 @@ async def record_javascript_assets(
     async with _LOCK:
         try:
             data = _load(path)
+            _merge_discovered_assets(data, unique_urls, source)
             assets = data["assets"]
-            for url in unique_urls:
-                previous = assets.get(url, {})
-                sources = list(previous.get("sources", []))
-                if source not in sources:
-                    sources.append(source)
-                assets[url] = {
-                    "url": url,
-                    "status": "discovered",
-                    "notes": previous.get("notes", ""),
-                    "reason": "",
-                    "content_sha256": previous.get("content_sha256", ""),
-                    "sources": sources,
-                }
-            if unique_urls:
-                data["inventory_complete"] = False
-            data["updated_count"] = len(assets)
             _save(path, data)
         except (OSError, RuntimeError, TypeError) as exc:
             logger.exception("Failed to bulk-import JavaScript assets")
