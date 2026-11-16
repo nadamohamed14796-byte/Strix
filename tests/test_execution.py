@@ -42,7 +42,7 @@ async def test_session_history_is_repaired_before_replay(monkeypatch: pytest.Mon
     replaced: dict[str, Any] = {}
 
     async def fake_replace_session_items(
-        session: Any,
+        _session: Any,
         items: list[Any],
         *,
         expected_len: int | None = None,
