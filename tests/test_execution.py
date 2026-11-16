@@ -1613,7 +1613,6 @@ async def test_target_ledger_rejects_append_after_testing_begins() -> None:
         )
 
 
-
 @pytest.mark.asyncio
 async def test_live_target_append_preserves_progress_and_extends_recon_barrier() -> None:
     coordinator = AgentCoordinator()
