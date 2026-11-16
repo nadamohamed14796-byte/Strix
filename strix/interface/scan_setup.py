@@ -12,7 +12,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import tempfile
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from strix.config import Settings, codex, load_settings
@@ -233,10 +235,18 @@ def prepare_resume_target_additions(
                 details.get("workspace_subdir"),
             )
 
+    combined_targets = [*existing, *fresh]
+    api_staging = str(Path(tempfile.gettempdir()) / "strix_api_specs" / args.resume)
+    retained_sources = [
+        source for source in (args.local_sources or [])
+        if str(source.get("source_path", "")) != api_staging
+    ]
     added_sources = collect_local_sources(fresh)
-    added_sources.extend(stage_api_specs(fresh, args.resume))
-    args.targets_info = [*existing, *fresh]
-    args.local_sources = [*(args.local_sources or []), *added_sources]
+    # Re-stage all API specs together so a new spec with the same filename
+    # cannot overwrite an older target's mounted file.
+    added_sources.extend(stage_api_specs(combined_targets, args.resume))
+    args.targets_info = combined_targets
+    args.local_sources = [*retained_sources, *added_sources]
 
     # Update only the two fields that describe authorized targets and their
     # staged sources. Preserve timestamps, instructions, report state and all
