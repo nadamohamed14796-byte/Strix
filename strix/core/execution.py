@@ -309,6 +309,14 @@ async def spawn_child_agent(
     if not isinstance(parent_id, str):
         raise TypeError("Parent agent_id missing from context")
 
+    assigned_target_ids = list(target_ids or [])
+    if assigned_target_ids:
+        task = (
+            f"{task.rstrip()}\n\n"
+            "Assigned canonical target IDs (exact set): "
+            f"{', '.join(assigned_target_ids)}. Return one Recon outcome for each ID."
+        )
+
     child_id = uuid.uuid4().hex[:8]
     child_agent = factory(name=name, skills=skills)
     await coordinator.register(
