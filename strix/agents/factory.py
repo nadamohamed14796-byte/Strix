@@ -27,7 +27,7 @@ from strix.tools.agents_graph.tools import (
 )
 from strix.tools.finish.tool import finish_scan
 from strix.tools.load_skill.tool import load_skill
-from strix.tools.javascript_audit.tool import record_javascript_asset
+from strix.tools.javascript_audit.tool import (\n    complete_javascript_inventory,\n    record_javascript_asset,\n)
 from strix.tools.notes.tools import (
     create_note,
     delete_note,
