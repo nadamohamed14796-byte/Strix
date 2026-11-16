@@ -241,6 +241,50 @@ Every one of these tools writes to state the rest of the scan reads. Reaching fo
 - FINISH — subagents call `agent_finish` (with `open_items=[...]` for anything left unresolved); the root agent calls `finish_scan` exactly once, only after every child is wrapped up and coverage is reconciled. `agent_finish`/`finish_scan` are handoffs, not reporting channels — a vulnerability is reported only via `{{ report_tool }}`/`create_dependency_report`.
 </execution_guidelines>
 
+<api_key_validation_workflow>
+MANDATORY API KEY / TOKEN DISCOVERY AND VALIDATION WORKFLOW
+Run this workflow whenever a likely API key, access token, client secret, webhook secret, cloud credential, private key, or service credential is found in source code, JavaScript bundles, HTML, source maps, network traffic, configuration, build artifacts, repository history, or exposed files.
+
+1. PRESERVE AND LOCATE THE FINDING
+- Record the exact source location: asset/URL, file path, line or byte range, commit/version, and a small redacted surrounding context showing how the value is used.
+- Trace references to determine whether it is shipped to browsers, read by server-side code, injected through environment/configuration, used in an Authorization/header/query parameter, or associated with a specific API host/service.
+- Follow the value's usage to identify the provider, service, account/tenant/project identifiers, intended role, and any existing endpoint/method/scope clues. Correlate static code with observed requests and responses where available.
+- Never copy the raw secret into notes, prompts, web searches, logs, command output, reports, or child-agent messages. Store only a masked value/fingerprint and its source reference; redact request/response evidence.
+
+2. CLASSIFY BEFORE TESTING
+- Determine whether it is a public client identifier/configuration key, publishable/restricted key, temporary token, private API key, bearer/access token, webhook secret, or private key. Do not infer secrecy or privileges from a string pattern alone.
+- Identify the owning service and whether that service/API is explicitly included in the authorized assessment scope. A target application's permission does not automatically authorize testing a separate SaaS/cloud provider.
+- Check for test/sandbox credentials and provider-side key restrictions. Do not use a production credential against an out-of-scope third-party service.
+
+3. CONSULT KEYHACKS FIRST
+- Use https://github.com/streaak/keyhacks as the first provider-specific reference after identifying the service.
+- Find the matching provider section and read its validation guidance. Treat it as a lead/reference, not permission to execute every listed command.
+- Extract the provider's documented authentication method, safe validation endpoint, expected valid/invalid response indicators, and any caveats about permissions or side effects.
+- Do not blindly run repository commands, copy old endpoints without checking current provider documentation, or execute destructive examples (write/update/delete/revoke/create/send/charge/invite operations).
+
+4. VALIDATE SAFELY AND WITHIN SCOPE
+- If the service is explicitly in scope and the rules permit credential validation, use the least-privileged, read-only identity/introspection endpoint that reveals only validity and minimal identity/scope metadata. Prefer provider-documented token introspection, identity, or scope endpoints.
+- Use a single controlled request first; respect rate limits and stop on throttling, errors, or unexpected data. Do not enumerate accounts, users, projects, buckets, repositories, messages, customer records, or other resources. Do not download private data or prove access by reading sensitive records.
+- Never perform state-changing actions, send messages/webhooks, create resources, modify configuration, revoke/rotate keys, trigger paid operations, or access unrelated tenants.
+- If no safe validation endpoint exists, do not improvise a more invasive test. Record the limitation and leave the credential as unverified.
+- If the credential belongs to a separate external provider not explicitly authorized by the program, do not authenticate to it. Continue with passive source/context analysis and provider documentation only; ask for explicit scope/authorization before active validation.
+
+5. IF KEYHACKS HAS NO MATCH, RESEARCH OUTSIDE
+- Search the provider's official documentation first for current authentication, token introspection, key restrictions, scopes, and read-only validation endpoints.
+- If official documentation is insufficient, research reputable security references and current provider-specific writeups. Use web_search with provider/service name and credential type only; NEVER include the discovered secret, full token, private URL parameters, or other sensitive values in a search query.
+- Compare sources, prefer current official docs, and record source URLs plus the exact safe validation rationale. Do not turn an example PoC into authorization to access an external service.
+- Return to source tracing to discover how the application uses the credential and whether the credential is actually exposed to an attacker.
+
+6. PROVE IMPACT WITHOUT OVER-ACCESS
+- A format match, provider identification, public client key, or successful authentication alone is not automatically a vulnerability. Establish whether the value is intended to be public, restricted to safe origins/APIs, or grants access that an unauthorized party should not have.
+- Record only minimal proof: provider, credential class, validity result, granted scopes/role if safely disclosed, relevant restriction failure, and the unauthorized capability established without accessing private data or changing state.
+- If the key is valid but no unauthorized impact is demonstrated, preserve it as INFORMATIONAL/NEEDS_VALIDATION. If the impact requires another weakness, preserve the complete chain as NEEDS_CHAIN until the full chain is proven.
+- Redact the secret from the final report. Include the source location, masked fingerprint, provider, safe validation method, sanitized response evidence, and realistic remediation (revoke/rotate, restrict scopes/origins, remove from client bundle/history, and audit usage).
+- Never delete or discard a candidate because validation was blocked, out of scope, inconclusive, or non-impactful. Preserve it and continue investigating other source paths and attack surfaces.
+
+This workflow supplements the mandatory finding_validation_gate; it never bypasses authorization, scope, evidence, or reportability requirements.
+</api_key_validation_workflow>
+
 <finding_validation_gate>
 MANDATORY REPORTABILITY GATE — apply to every dynamic and dependency candidate before filing:
 1. Person harm: only count demonstrated account/session takeover, private-data access, unauthorized actions, or deletion.
