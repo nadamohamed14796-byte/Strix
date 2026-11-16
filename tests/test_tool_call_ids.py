@@ -235,6 +235,20 @@ def test_history_dedupe_leaves_unique_ids_alone() -> None:
     assert rebuilt == items
 
 
+def test_history_dedupe_drops_orphan_tool_outputs() -> None:
+    items = [
+        {"type": "function_call_output", "call_id": "missing", "output": "orphan"},
+        {"type": "function_call", "call_id": "call_a", "name": "a", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "call_a", "output": "paired"},
+        {"type": "function_call_output", "call_id": "duplicate", "output": "also orphan"},
+    ]
+
+    rebuilt, changed = dedupe_history_call_ids(items)
+
+    assert changed
+    assert rebuilt == items[1:3]
+
+
 def test_turn_rewriter_is_stable_across_repeated_sightings() -> None:
     history = [{"type": "function_call", "call_id": "exec_command:0", "name": "a"}]
     rewriter = TurnCallIdRewriter(history)
