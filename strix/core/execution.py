@@ -309,11 +309,12 @@ async def spawn_child_agent(
     if not isinstance(parent_id, str):
         raise TypeError("Parent agent_id missing from context")
 
+    effective_phase = phase or await coordinator.phase_for(parent_id)
     assigned_target_ids = list(target_ids or [])
     if assigned_target_ids:
         ownership_note = (
             "Return one Recon outcome for each ID."
-            if phase == "recon"
+            if effective_phase == "recon"
             else "Keep all testing tasks, findings, and evidence tied to these IDs."
         )
         task = (
@@ -330,7 +331,7 @@ async def spawn_child_agent(
         parent_id,
         task=task,
         skills=skills,
-        phase=phase,
+        phase=effective_phase,
         target_ids=target_ids,
     )
 
@@ -367,7 +368,7 @@ async def spawn_child_agent(
         "agent_id": child_id,
         "name": name,
         "parent_id": parent_id,
-        "phase": phase,
+        "phase": effective_phase,
         "target_ids": list(target_ids or []),
         "message": f"Spawned '{name}' ({child_id}) running in parallel.",
     }
