@@ -226,6 +226,7 @@ def test_changed_javascript_content_reopens_asset_for_analysis():
 
     assert entry["status"] == "discovered"
     assert entry["content_sha256"] == "b" * 64
+    assert entry["notes"] == ""
     assert data["inventory_complete"] is True
 
 
