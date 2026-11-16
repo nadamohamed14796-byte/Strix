@@ -26,11 +26,11 @@ from strix.tools.agents_graph.tools import (
     wait_for_agents,
 )
 from strix.tools.finish.tool import finish_scan
-from strix.tools.load_skill.tool import load_skill
 from strix.tools.javascript_audit.tool import (
     complete_javascript_inventory,
     record_javascript_asset,
 )
+from strix.tools.load_skill.tool import load_skill
 from strix.tools.notes.tools import (
     create_note,
     delete_note,
