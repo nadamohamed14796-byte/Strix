@@ -227,8 +227,6 @@ def test_system_prompt_requires_complete_javascript_file_audit() -> None:
 
 def test_root_prompt_enforces_scan_wide_recon_before_testing() -> None:
     """Large target lists must complete global recon before any testing starts."""
-    from pathlib import Path
-
     root = Path(__file__).resolve().parents[1]
     prompt = (root / "strix/agents/prompts/system_prompt.jinja").read_text(encoding="utf-8")
     skill = (root / "strix/skills/coordination/root_agent.md").read_text(encoding="utf-8")
