@@ -225,3 +225,31 @@ def test_system_prompt_requires_complete_javascript_file_audit() -> None:
     assert "record_javascript_assets" in tool_names
     assert "get_javascript_audit_status" in tool_names
     assert "complete_javascript_inventory" in tool_names
+
+
+def test_root_prompt_enforces_scan_wide_recon_before_testing() -> None:
+    """Large target lists must complete global recon before any testing starts."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    prompt = (root / "strix/agents/prompts/system_prompt.jinja").read_text(encoding="utf-8")
+    skill = (root / "strix/skills/coordination/root_agent.md").read_text(encoding="utf-8")
+
+    for required in (
+        "MULTI-TARGET PHASE BARRIER",
+        "RECON-ONLY",
+        "global phase gate",
+        "every ledger target",
+        "Only after this scan-wide reconciliation passes",
+        "do not start testing for a target merely because that target's recon worker finished",
+    ):
+        assert required.lower() in prompt.lower()
+
+    for required in (
+        "Global Multi-Target Phase Gate",
+        "all-target Recon first, Testing second",
+        "recon-only workers",
+        "root agent alone controls the phase transition",
+        "never sample, truncate, or silently omit targets",
+    ):
+        assert required.lower() in skill.lower()
