@@ -143,9 +143,7 @@ def test_resume_rejects_target_append_after_testing_begins(
     with pytest.raises(SystemExit):
         cli_main.parse_arguments()
 
-    assert "only be appended while the existing scan is still in Recon" in (
-        capsys.readouterr().err
-    )
+    assert "only be appended while the existing scan is still in Recon" in (capsys.readouterr().err)
 
 
 def _write_run_record(runs_dir: Path, run_name: str, record: dict[str, Any]) -> None:
