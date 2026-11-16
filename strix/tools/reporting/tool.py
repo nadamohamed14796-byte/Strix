@@ -1302,6 +1302,9 @@ async def create_dependency_report(
             this text next to the adjusted score, so an adjustment
             without it is discarded.
     """
+    if phase_error := _reporting_phase_error(ctx):
+        return phase_error
+
     agent_id, agent_name = _caller_identity(ctx)
 
     result = await _do_create_dependency(
