@@ -291,7 +291,7 @@ async def run_strix_scan(
         await coordinator.initialize_target_ledger(
             scope_context.get("target_ledger", []) if isinstance(scope_context, dict) else []
         )
-        if isinstance(scope_context, dict):
+        if isinstance(scope_context, dict) and "target_ledger" in scope_context:
             # A resumed ledger is authoritative: preserve completed Recon state
             # in the root/child prompt instead of presenting every old target as queued.
             scope_context["target_ledger"] = [
