@@ -203,8 +203,9 @@ def _finding_validation_gate(
 
 
 _SENSITIVE_FIELD_NAME = re.compile(
-    r"(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|"
-    r"password|authorization|private[_-]?key|secret|credential)",
+    r"(?:^|[_-])(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|"
+    r"password|authorization|private[_-]?key|secret|credential(?:$|[_-](?:value|secret|token))|"
+    r"token(?![_-]?type)(?:$|[_-]))",
     re.IGNORECASE,
 )
 _SECRET_ASSIGNMENT = re.compile(
@@ -258,9 +259,11 @@ def _preserve_validation_candidate(
     reason: str,
 ) -> dict[str, Any]:
     """Persist blocked candidates as scan notes; never silently discard them."""
+    safe_title = str(_redact_candidate_secrets(str(title or "Untitled finding")))[:180]
+    safe_reason = str(_redact_candidate_secrets(reason))
     payload = {
         "status": status,
-        "reason": reason,
+        "reason": safe_reason,
         "candidate": _redact_candidate_secrets(candidate),
         "next_action": (
             "Continue validation and testing from another angle; do not delete this candidate."
@@ -270,7 +273,7 @@ def _preserve_validation_candidate(
         from strix.tools.notes.tools import _create_note_impl
 
         saved = _create_note_impl(
-            title=f"[{status}] {str(title or 'Untitled finding')[:180]}",
+            title=f"[{status}] {safe_title}",
             content=json.dumps(payload, ensure_ascii=False, default=str, indent=2),
             category="findings",
             tags=["finding-validation", status.lower()],
