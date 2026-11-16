@@ -300,6 +300,15 @@ class AgentCoordinator:
                 unknown = sorted(set(normalized_target_ids) - set(self.target_ledger))
                 if unknown:
                     raise ValueError(f"Child task references unknown target IDs: {unknown}")
+                if assigned_phase == "testing":
+                    blocked = [
+                        target_id for target_id in normalized_target_ids
+                        if self.target_ledger[target_id].get("status") != "recon_complete"
+                    ]
+                    if blocked:
+                        raise ValueError(
+                            f"Testing cannot be assigned to targets without completed Recon: {blocked}"
+                        )
                 if assigned_phase == "recon":
                     for target_id in normalized_target_ids:
                         entry = self.target_ledger[target_id]
