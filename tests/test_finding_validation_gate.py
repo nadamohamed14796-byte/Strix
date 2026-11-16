@@ -129,3 +129,26 @@ def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
     assert "[REDACTED sha256:" in serialized
     assert sanitized["credential_type"] == "private"
     assert sanitized["credential_access_proven"] is False
+
+
+def test_blocked_candidate_notes_survive_hydration(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(notes_tools, "_notes_path", None)
+    monkeypatch.setattr(notes_tools, "_notes_storage", {})
+
+    created = notes_tools._create_note_impl(
+        title="[NEEDS_VALIDATION] Candidate",
+        content="Candidate evidence retained for follow-up.",
+        category="findings",
+        tags=["finding-validation", "needs_validation"],
+    )
+    assert created["success"] is False
+
+    notes_tools._notes_path = tmp_path / "notes.json"
+    assert notes_tools._persist() is True
+    notes_tools._notes_storage.clear()
+    notes_tools.hydrate_notes_from_disk(tmp_path)
+
+    restored = notes_tools._list_notes_impl(category="findings", include_content=True)
+    assert len(restored) == 1
+    assert restored[0]["title"] == "[NEEDS_VALIDATION] Candidate"
+    assert "retained for follow-up" in restored[0]["content"]
