@@ -114,6 +114,16 @@ async def view_agent_graph(ctx: RunContextWrapper) -> str:
             "success": True,
             "graph_structure": "\n".join(lines) or "(no agents)",
             "scan_phase": coordinator.scan_phase,
+            "target_ledger": [
+                {
+                    "target_id": target_id,
+                    "target": entry.get("value", ""),
+                    "status": entry.get("status", "queued"),
+                    "assigned_to": entry.get("assigned_to"),
+                    "attempts": entry.get("attempts", 0),
+                }
+                for target_id, entry in coordinator.target_ledger.items()
+            ],
             "summary": summary,
         },
         ensure_ascii=False,
