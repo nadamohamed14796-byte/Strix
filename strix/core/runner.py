@@ -319,7 +319,7 @@ async def run_strix_scan(
                 skills=skills,
             )
 
-        await coordinator.initialize_target_ledger(root_context.get("target_ledger", []))
+        await coordinator.initialize_target_ledger(scope_context.get("target_ledger", []))
 
         child_agent_builder = make_child_factory(
             scan_mode=scan_mode,
