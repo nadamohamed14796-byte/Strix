@@ -483,6 +483,8 @@ async def create_agent(
             when starting a clean-slate task.
         skills: List of skill names (e.g. ``["xss", "sql_injection"]``).
             Max 5; prefer 1-3.
+        phase: Optional explicit phase; defaults to the caller phase. Testing
+            workers are rejected until the root opens the scan-wide phase gate.
     """
     inner = _ctx(ctx)
     coordinator = coordinator_from_context(inner)
