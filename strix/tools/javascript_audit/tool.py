@@ -34,7 +34,7 @@ def _ledger_path() -> Path | None:
 
 def _load(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {"version": 1, "assets": {}}
+        return {"version": 1, "assets": {}, "inventory_complete": False}
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -97,6 +97,8 @@ async def record_javascript_asset(
                 "content_sha256": content_sha256.lower() or previous.get("content_sha256", ""),
             }
             assets[key] = entry
+            if status == "discovered":
+                data["inventory_complete"] = False
             data["updated_count"] = len(assets)
             _save(path, data)
         except (OSError, RuntimeError, TypeError) as exc:
@@ -109,7 +111,7 @@ def javascript_audit_status(run_dir: Path) -> dict[str, Any]:
     """Return audit coverage for finish_scan; absent ledger means not initialized."""
     path = run_dir / "javascript_audit.json"
     if not path.exists():
-        return {"initialized": False, "total": 0, "pending": [], "terminal": []}
+        return {"initialized": False, "inventory_complete": False, "total": 0, "pending": [], "terminal": []}
     data = _load(path)
     assets = data["assets"]
     pending = [
@@ -122,4 +124,4 @@ def javascript_audit_status(run_dir: Path) -> dict[str, Any]:
         for url, item in assets.items()
         if isinstance(item, dict) and item.get("status") in {"failed", "skipped"}
     ]
-    return {"initialized": True, "total": len(assets), "pending": pending, "terminal": terminal}
+    return {"initialized": True, "inventory_complete": bool(data.get("inventory_complete")), "total": len(assets), "pending": pending, "terminal": terminal}
