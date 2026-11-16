@@ -223,6 +223,9 @@ def test_xss_requires_source_encoding_sink_browser_and_affected_page_evidence() 
             "browser_execution_proven": True,
             "rendered_payload_evidence": "Harmless marker rendered as executable DOM content",
             "browser_execution_evidence": "Browser observed the benign execution marker",
+            "verified_working_payload": "<img src=x onerror=console.log('strix-xss-proof')>",
+            "payload_delivery_context": "GET /search?q=...; reflected query parameter; text/html",
+            "payload_execution_result": "Console marker strix-xss-proof executed on /search",
             "affected_pages": ["/search?q=test"],
         },
     )
@@ -241,3 +244,34 @@ def test_xss_does_not_require_xss_evidence_for_non_xss_findings() -> None:
     )
     assert status is None
     assert reason is None
+
+
+
+def test_xss_without_exact_verified_payload_is_not_reportable() -> None:
+    from strix.tools.reporting.tool import _xss_validation_gate
+
+    evidence = {
+        "source_reviewed": True,
+        "source_location": "app/routes.py:42",
+        "source_to_sink_trace": "query -> template -> HTML sink",
+        "encoding_assessed": True,
+        "output_context": "HTML element",
+        "encoding_assessment": "No contextual encoding",
+        "sink_reached": True,
+        "sink_location": "app/client.js:88",
+        "browser_execution_proven": True,
+        "rendered_payload_evidence": "Harmless marker rendered",
+        "browser_execution_evidence": "Browser observed marker",
+        "payload_delivery_context": "GET /search?q=...",
+        "payload_execution_result": "Marker executed on /search",
+        "affected_pages": ["/search"],
+    }
+    status, reason = _xss_validation_gate(
+        title="Reflected XSS",
+        description="Untrusted input reaches an HTML sink.",
+        technical_analysis="Browser proof exists but exact payload was not recorded.",
+        cwe="CWE-79",
+        xss_validation=evidence,
+    )
+    assert status == "NEEDS_VALIDATION"
+    assert "verified_working_payload" in reason
