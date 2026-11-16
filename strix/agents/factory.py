@@ -19,6 +19,7 @@ from strix.agents.prompt import render_system_prompt
 from strix.config import load_settings
 from strix.tools.agents_graph.tools import (
     agent_finish,
+    advance_scan_phase,
     create_agent,
     send_message_to_agent,
     stop_agent,
@@ -522,6 +523,7 @@ _BASE_TOOLS: tuple[Tool, ...] = (
     view_agent_graph,
     send_message_to_agent,
     wait_for_agents,
+    advance_scan_phase,
     create_agent,
     stop_agent,
 )
