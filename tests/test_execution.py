@@ -1324,6 +1324,8 @@ async def test_scan_phase_gate_requires_root_reconciliation_and_completed_recon_
 
     with pytest.raises(ValueError, match="Cannot register"):
         await coordinator.register("late-recon", "Late Recon", parent_id="root", phase="recon")
+    with pytest.raises(ValueError, match="Cannot register"):
+        await coordinator.register("late-child", "Late Child", parent_id="recon-a", phase="recon")
     await coordinator.register("testing-a", "Testing A", parent_id="root", phase="testing")
 
 
