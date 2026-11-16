@@ -9,13 +9,14 @@ description: Exhaustive file-by-file analysis of every discovered in-scope JavaS
 
 Perform a complete, systematic analysis of the collected JavaScript corpus. This is an asset-coverage task, not a hunt for a predefined endpoint, filename, framework, vulnerability class, or scenario.
 
-**Every discovered in-scope JavaScript asset must be accounted for and reviewed individually.** Do not choose files based on names such as login, auth, admin, api, or on whether an initial scan considers them interesting. Do not stop after finding a few useful endpoints or likely vulnerabilities. Names, folder locations, bundle size, and apparent business purpose must not determine whether a file is analyzed.
+**EVERY discovered in-scope JavaScript asset must be accounted for and reviewed individually.** Do not choose files based on names such as login, auth, admin, api, or on whether an initial scan considers them interesting. Do not stop after finding a few useful endpoints or likely vulnerabilities. Names, folder locations, bundle size, and apparent business purpose must not determine whether a file is analyzed.
 
 The analyst is responsible for analysis and durable evidence. It does not own or pause the crawler, root agent, or unrelated reconnaissance/testing work.
 
 ## Complete asset inventory and file-by-file processing
 
-Consume the complete crawl asset manifest and all discovered in-scope first-party JavaScript:
+Consume the complete crawl asset manifest and all discovered in-scope first-party JavaScript. If the crawler has not produced a manifest yet, request the current crawl inventory and initialize the canonical manifest from every discovered script candidate; do not wait for the crawl to finish. The crawler remains the sole owner of discovery records, while the analyst owns per-asset analysis status and analysis artifacts. Publish updates incrementally with stable IDs and atomic file replacement where supported:
+
 - External scripts and bundles, including minified files and versioned/chunked bundles.
 - Inline scripts and script blocks extracted from HTML.
 - ES modules, dynamic imports, lazy-loaded route chunks, workers and service workers.
