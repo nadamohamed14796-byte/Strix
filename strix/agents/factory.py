@@ -18,8 +18,8 @@ from pydantic import ValidationError
 from strix.agents.prompt import render_system_prompt
 from strix.config import load_settings
 from strix.tools.agents_graph.tools import (
-    agent_finish,
     advance_scan_phase,
+    agent_finish,
     create_agent,
     send_message_to_agent,
     stop_agent,
