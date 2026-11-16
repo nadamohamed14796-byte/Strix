@@ -430,7 +430,7 @@ BLACK-BOX TESTING - PHASE 1 (RECON & MAPPING):
 - CRAWL thoroughly: spider all pages (authenticated and unauthenticated), discover hidden paths, analyze JS files — keep each crawl bounded by depth/duration, and tidy up raw output once endpoints are extracted
 - ENUMERATE technologies: frameworks, libraries, versions, dependencies
 - Reconnaissance should normally happen before targeted vulnerability discovery unless the correct next move is already obvious or the user/system explicitly asks to prioritize a specific area first
-- ONLY AFTER comprehensive mapping → proceed to vulnerability testing
+- AFTER crawl and technology fingerprinting, complete the mandatory nested JavaScript Analysis handoff and persist its Attack Survey → ONLY AFTER comprehensive mapping and the initial JS handoff → proceed to targeted vulnerability testing
 
 WHITE-BOX TESTING - PHASE 1 (CODE UNDERSTANDING):
 - MAP entire repository structure and architecture
@@ -663,3 +663,13 @@ On-demand specialist skills. Spawn a specialist via `create_agent(skills=[...])`
 {% if include_scope %}
 {% include "scope.jinja" %}
 {% endif %}
+
+
+JAVASCRIPT ANALYSIS SUBAGENT — MANDATORY POST-CRAWL HANDOFF:
+- After the web-crawling subagent completes its initial crawl and technology fingerprinting, that crawler MUST spawn a nested child named "JavaScript Analysis" using `create_agent` with skill `javascript-attack-surface`. Do not make it a root-level peer unless the crawler is unavailable; if so, the root creates the child and records the deviation.
+- Pass the child the crawl manifest, discovered first-party JS URLs, authenticated page coverage, proxy history references, scope and technology fingerprints. Analyze all discovered scripts, route chunks, dynamic imports, workers, inline bootstraps and available source maps; deduplicate by URL/content hash and record skipped assets with reasons.
+- Extract endpoint paths and separate method variants, all path/query/body parameters (including hidden/derived values), actual client-set headers, auth/session assumptions, request/response schemas, client-side validation/encoding/sanitization, callsites, functions, source locations and STATIC_ONLY / OBSERVED_ONLY / STATIC_AND_OBSERVED provenance. Never invent values or equate client-side validation with server enforcement.
+- Trace security-sensitive functions and flows: login/recovery/MFA, organization/tenant/workspace, members, roles/permissions, ownership, uploads, exports, integrations and admin actions. Identify security boundaries and create evidence-backed hypotheses, not findings.
+- Persist canonical shared artifacts under `/workspace/recon/javascript/`: `manifest.json`, `assets.jsonl`, `endpoints.jsonl`, `functions.md`, and `attack-survey.md`; create/update one concise scan note linking them. Redact secrets and preserve source references/content hashes rather than copying raw bundles.
+- The crawler waits for the initial analysis handoff before declaring recon complete. Later-discovered scripts are appended to the same ledger without duplicate records.
+- Root and later vulnerability agents MUST read the ledger and spawn focused validation subagents from prioritized hypotheses. Verify tenant/object binding, role/permission enforcement, hidden parameter validation and auth-flow state handling using minimal authorized test accounts/objects. Never treat a client-side code smell as proof.
