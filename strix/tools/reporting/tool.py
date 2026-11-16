@@ -177,7 +177,10 @@ def _finding_validation_gate(
     if impact_proven is not True:
         return "INFORMATIONAL", "No actual security consequence has been demonstrated."
     if impact_type in {"recon", "other"}:
-        return "INFORMATIONAL", "Reconnaissance or unclassified information alone is not reportable."
+        return (
+            "INFORMATIONAL",
+            "Reconnaissance or unclassified information alone is not reportable.",
+        )
     if chain_complete is not True:
         return "NEEDS_CHAIN", "The required exploit chain is incomplete."
     if credential_type == "private" and credential_access_proven is not True:
@@ -190,7 +193,10 @@ def _finding_validation_gate(
     ):
         return (
             "INFORMATIONAL",
-            "A public client-side value or unverified credential is not proof of unauthorized access.",
+            (
+                "A public client-side value or unverified credential is not proof "
+                "of unauthorized access."
+            ),
         )
     return None, None
 
@@ -1174,7 +1180,11 @@ async def create_vulnerability_report(
 
     **Reporting and severity gate**:
 
-    Mandatory Finding Validation Gate: prove actual person/platform impact; classify public_client vs private credentials and prove granted access; mark chain_complete only after all required steps. Recon-only or unproven candidates are saved as findings notes, not reports. Small real impacts remain reportable at lower severity. Rejection never deletes a candidate.
+    Mandatory Finding Validation Gate: prove actual person/platform impact; classify
+    public_client vs private credentials and prove granted access; mark chain_complete
+    only after all required steps. Recon-only or unproven candidates are saved as
+    findings notes, not reports. Small real impacts remain reportable at lower severity.
+    Rejection never deletes a candidate.
 
 
     - A reachable endpoint, unusual response, weak configuration, or
@@ -1566,7 +1576,8 @@ async def create_vulnerability_report(
         impact_type: person/platform/credential/recon/other; classify the actual consequence.
         impact_proven: true only when direct evidence demonstrates real impact.
         chain_complete: true only when all required exploit steps and final impact are proven.
-        credential_type: none/public_client/private; separate public client config from private secrets.
+        credential_type: none/public_client/private; distinguish public client config
+            from private secrets.
         credential_access_proven: true only after demonstrating what access a private secret grants.
     """
     (
