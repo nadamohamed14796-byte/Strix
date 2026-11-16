@@ -31,6 +31,33 @@ from strix.tools.javascript_audit import tool as javascript_audit_tool
 _NO_STREAM_EVENTS: list[Any] = []
 
 
+@pytest.mark.asyncio
+async def test_session_history_is_repaired_before_replay(monkeypatch: pytest.MonkeyPatch) -> None:
+    orphaned = {"type": "function_call_output", "call_id": "missing", "output": "orphan"}
+
+    class FakeSession:
+        async def get_items(self) -> list[Any]:
+            return [orphaned]
+
+    replaced: dict[str, Any] = {}
+
+    async def fake_replace_session_items(
+        session: Any,
+        items: list[Any],
+        *,
+        expected_len: int | None = None,
+    ) -> bool:
+        replaced.update(items=items, expected_len=expected_len)
+        return True
+
+    monkeypatch.setattr(execution, "replace_session_items", fake_replace_session_items)
+
+    result = await execution._repair_session_tool_history(FakeSession(), "agent-1")
+
+    assert result == []
+    assert replaced == {"items": [], "expected_len": 1}
+
+
 class _StructuredRefusalStream:
     def __init__(self, refusal: str) -> None:
         self.run_loop_exception: BaseException | None = None
