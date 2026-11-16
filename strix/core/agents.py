@@ -132,7 +132,9 @@ class AgentCoordinator:
                     continue
                 for key in ("type", "value", "workspace_path"):
                     if current.get(key, "") != entry.get(key, ""):
-                        raise ValueError(f"Target identity changed for {target_id}; refusing scope drift")
+                        raise ValueError(
+                            f"Target identity changed for {target_id}; refusing scope drift"
+                        )
             if not additions:
                 return []
             if persist is not None:
