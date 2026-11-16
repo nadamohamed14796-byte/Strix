@@ -7,6 +7,7 @@ flow through to the root agent's ``build_strix_agent`` call.
 from __future__ import annotations
 
 import types
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -16,6 +17,7 @@ from openai import RateLimitError
 
 import strix.tools.notes.tools as notes_tools
 import strix.tools.todo.tools as todo_tools
+from strix.agents.factory import _BASE_TOOLS
 from strix.core import runner
 from strix.core.agents import AgentCoordinator
 from strix.runtime import session_manager
@@ -199,8 +201,6 @@ async def test_unknown_tool_calls_are_returned_to_the_model(
 
 def test_system_prompt_requires_complete_javascript_file_audit() -> None:
     """The scan prompt must not let the root agent skip per-file JS coverage."""
-    from pathlib import Path
-
     root = Path(__file__).resolve().parents[1]
     prompt = (root / "strix/agents/prompts/system_prompt.jinja").read_text(encoding="utf-8")
     skill_path = root / "strix/skills/reconnaissance/javascript_file_audit.md"
@@ -217,8 +217,6 @@ def test_system_prompt_requires_complete_javascript_file_audit() -> None:
     assert "get_javascript_audit_status" in prompt
     assert "Immediately after each crawler pass" in prompt
     assert "complete_javascript_inventory" in prompt
-
-    from strix.agents.factory import _BASE_TOOLS
 
     tool_names = {tool.name for tool in _BASE_TOOLS}
     assert "record_javascript_asset" in tool_names
