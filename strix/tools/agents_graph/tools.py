@@ -444,6 +444,7 @@ async def create_agent(
     inherit_context: bool = True,
     skills: list[str] | None = None,
     phase: Literal["recon", "testing"] | None = None,
+    target_ids: list[str] | None = None,
 ) -> str:
     """Spawn a specialist child agent to run in parallel.
 
@@ -486,6 +487,8 @@ async def create_agent(
             Max 5; prefer 1-3.
         phase: Optional explicit phase; defaults to the caller phase. Testing
             workers are rejected until the root opens the scan-wide phase gate.
+        target_ids: Exact canonical target IDs assigned to this worker. Required
+            for scoped scans; Recon batches are assigned by the root only.
     """
     inner = _ctx(ctx)
     coordinator = coordinator_from_context(inner)
@@ -523,6 +526,24 @@ async def create_agent(
             default=str,
         )
 
+    assigned_target_ids = list(target_ids or [])
+    if coordinator.target_ledger and not assigned_target_ids:
+        return json.dumps(
+            {"success": False, "error": "target_ids are required for every child task in a scoped scan"},
+            ensure_ascii=False,
+            default=str,
+        )
+    if (
+        coordinator.target_ledger
+        and caller_phase == "recon"
+        and coordinator.parent_of.get(parent_id) is not None
+    ):
+        return json.dumps(
+            {"success": False, "error": "Recon batches are root-owned; Recon workers cannot delegate"},
+            ensure_ascii=False,
+            default=str,
+        )
+
     skill_list = list(skills or [])
     skill_error = validate_requested_skills(skill_list)
     if skill_error:
@@ -541,6 +562,7 @@ async def create_agent(
             skills=skill_list,
             parent_history=parent_history,
             phase=requested_phase,
+            target_ids=assigned_target_ids,
         )
     except Exception as e:
         logger.exception("create_agent: scan runner failed to spawn child '%s'", name)
