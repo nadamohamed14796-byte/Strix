@@ -322,30 +322,31 @@ async def create_todo(ctx: RunContextWrapper, todos: str) -> str:
                 default=str,
             )
 
-        agent_todos = _get_agent_todos(agent_id)
-        seen = {todo["title"].strip().lower() for todo in agent_todos.values()}
-        created: list[dict[str, Any]] = []
-        skipped: list[dict[str, str]] = []
-        for task in tasks:
-            title = task["title"]
-            key = title.lower()
-            if key in seen:
-                skipped.append({"title": title, "reason": "duplicate title"})
-                continue
-            seen.add(key)
-            task_priority = _coerce_priority(task.get("priority"))
-            todo_id = str(uuid.uuid4())[:6]
-            timestamp = datetime.now(UTC).isoformat()
-            agent_todos[todo_id] = {
-                "title": title,
-                "description": task.get("description"),
-                "priority": task_priority,
-                "status": "pending",
-                "created_at": timestamp,
-                "updated_at": timestamp,
-                "completed_at": None,
-            }
-            created.append({"todo_id": todo_id, "title": title, "priority": task_priority})
+with _todos_io_lock:
+            agent_todos = _get_agent_todos(agent_id)
+            seen = {todo["title"].strip().lower() for todo in agent_todos.values()}
+            created: list[dict[str, Any]] = []
+            skipped: list[dict[str, str]] = []
+            for task in tasks:
+                title = task["title"]
+                key = title.lower()
+                if key in seen:
+                    skipped.append({"title": title, "reason": "duplicate title"})
+                    continue
+                seen.add(key)
+                task_priority = _coerce_priority(task.get("priority"))
+                todo_id = str(uuid.uuid4())[:6]
+                timestamp = datetime.now(UTC).isoformat()
+                agent_todos[todo_id] = {
+                    "title": title,
+                    "description": task.get("description"),
+                    "priority": task_priority,
+                    "status": "pending",
+                    "created_at": timestamp,
+                    "updated_at": timestamp,
+                    "completed_at": None,
+                }
+                created.append({"todo_id": todo_id, "title": title, "priority": task_priority})
     except (ValueError, TypeError) as e:
         return json.dumps(
             {"success": False, "error": f"Failed to create todo: {e}"},
@@ -391,26 +392,27 @@ async def list_todos(
     """
     agent_id = _agent_id_from(ctx)
     try:
-        agent_todos = _get_agent_todos(agent_id)
-        status_filter = status.lower() if isinstance(status, str) else None
-        priority_filter = priority.lower() if isinstance(priority, str) else None
+with _todos_io_lock:
+            agent_todos = _get_agent_todos(agent_id)
+            status_filter = status.lower() if isinstance(status, str) else None
+            priority_filter = priority.lower() if isinstance(priority, str) else None
 
-        todos_list: list[dict[str, Any]] = []
-        for todo_id, todo in agent_todos.items():
-            if status_filter and todo.get("status") != status_filter:
-                continue
-            if priority_filter and todo.get("priority") != priority_filter:
-                continue
-            entry = todo.copy()
-            entry["todo_id"] = todo_id
-            todos_list.append(entry)
+            todos_list: list[dict[str, Any]] = []
+            for todo_id, todo in agent_todos.items():
+                if status_filter and todo.get("status") != status_filter:
+                    continue
+                if priority_filter and todo.get("priority") != priority_filter:
+                    continue
+                entry = todo.copy()
+                entry["todo_id"] = todo_id
+                todos_list.append(entry)
 
-        todos_list.sort(key=_todo_sort_key)
+            todos_list.sort(key=_todo_sort_key)
 
-        summary: dict[str, int] = {"pending": 0, "in_progress": 0, "done": 0}
-        for todo in todos_list:
-            sv = todo.get("status", "pending")
-            summary[sv] = summary.get(sv, 0) + 1
+            summary: dict[str, int] = {"pending": 0, "in_progress": 0, "done": 0}
+            for todo in todos_list:
+                sv = todo.get("status", "pending")
+                summary[sv] = summary.get(sv, 0) + 1
     except (ValueError, TypeError) as e:
         return json.dumps(
             {
@@ -469,30 +471,31 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
     """
     agent_id = _agent_id_from(ctx)
     try:
-        agent_todos = _get_agent_todos(agent_id)
-        updates_to_apply = _normalize_bulk_updates(updates)
-        if not updates_to_apply:
-            return json.dumps(
-                {"success": False, "error": "Provide a non-empty 'updates' list"},
-                ensure_ascii=False,
-                default=str,
-            )
+with _todos_io_lock:
+            agent_todos = _get_agent_todos(agent_id)
+            updates_to_apply = _normalize_bulk_updates(updates)
+            if not updates_to_apply:
+                return json.dumps(
+                    {"success": False, "error": "Provide a non-empty 'updates' list"},
+                    ensure_ascii=False,
+                    default=str,
+                )
 
-        updated: list[str] = []
-        errors: list[dict[str, Any]] = []
-        for upd in updates_to_apply:
-            err = _apply_single_update(
-                agent_todos,
-                upd["todo_id"],
-                upd.get("title"),
-                upd.get("description"),
-                upd.get("priority"),
-                upd.get("status"),
-            )
-            if err:
-                errors.append(err)
-            else:
-                updated.append(upd["todo_id"])
+            updated: list[str] = []
+            errors: list[dict[str, Any]] = []
+            for upd in updates_to_apply:
+                err = _apply_single_update(
+                    agent_todos,
+                    upd["todo_id"],
+                    upd.get("title"),
+                    upd.get("description"),
+                    upd.get("priority"),
+                    upd.get("status"),
+                )
+                if err:
+                    errors.append(err)
+                else:
+                    updated.append(upd["todo_id"])
     except (ValueError, TypeError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
 
@@ -513,24 +516,25 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
 
 def _mark(*, agent_id: str, todo_ids: str, new_status: str) -> str:
     try:
-        agent_todos = _get_agent_todos(agent_id)
-        ids = _normalize_todo_ids(todo_ids)
-        if not ids:
-            msg = f"Provide a non-empty 'todo_ids' list to mark as {new_status}"
-            return json.dumps({"success": False, "error": msg}, ensure_ascii=False, default=str)
+with _todos_io_lock:
+            agent_todos = _get_agent_todos(agent_id)
+            ids = _normalize_todo_ids(todo_ids)
+            if not ids:
+                msg = f"Provide a non-empty 'todo_ids' list to mark as {new_status}"
+                return json.dumps({"success": False, "error": msg}, ensure_ascii=False, default=str)
 
-        marked: list[str] = []
-        errors: list[dict[str, Any]] = []
-        timestamp = datetime.now(UTC).isoformat()
-        for tid in ids:
-            if tid not in agent_todos:
-                errors.append({"todo_id": tid, "error": f"Todo with ID '{tid}' not found"})
-                continue
-            todo = agent_todos[tid]
-            todo["status"] = new_status
-            todo["completed_at"] = timestamp if new_status == "done" else None
-            todo["updated_at"] = timestamp
-            marked.append(tid)
+            marked: list[str] = []
+            errors: list[dict[str, Any]] = []
+            timestamp = datetime.now(UTC).isoformat()
+            for tid in ids:
+                if tid not in agent_todos:
+                    errors.append({"todo_id": tid, "error": f"Todo with ID '{tid}' not found"})
+                    continue
+                todo = agent_todos[tid]
+                todo["status"] = new_status
+                todo["completed_at"] = timestamp if new_status == "done" else None
+                todo["updated_at"] = timestamp
+                marked.append(tid)
     except (ValueError, TypeError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
 
@@ -588,23 +592,24 @@ async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
     """
     agent_id = _agent_id_from(ctx)
     try:
-        agent_todos = _get_agent_todos(agent_id)
-        ids = _normalize_todo_ids(todo_ids)
-        if not ids:
-            return json.dumps(
-                {"success": False, "error": "Provide a non-empty 'todo_ids' list to delete"},
-                ensure_ascii=False,
-                default=str,
-            )
+with _todos_io_lock:
+            agent_todos = _get_agent_todos(agent_id)
+            ids = _normalize_todo_ids(todo_ids)
+            if not ids:
+                return json.dumps(
+                    {"success": False, "error": "Provide a non-empty 'todo_ids' list to delete"},
+                    ensure_ascii=False,
+                    default=str,
+                )
 
-        deleted: list[str] = []
-        errors: list[dict[str, Any]] = []
-        for tid in ids:
-            if tid not in agent_todos:
-                errors.append({"todo_id": tid, "error": f"Todo with ID '{tid}' not found"})
-                continue
-            del agent_todos[tid]
-            deleted.append(tid)
+            deleted: list[str] = []
+            errors: list[dict[str, Any]] = []
+            for tid in ids:
+                if tid not in agent_todos:
+                    errors.append({"todo_id": tid, "error": f"Todo with ID '{tid}' not found"})
+                    continue
+                del agent_todos[tid]
+                deleted.append(tid)
     except (ValueError, TypeError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
 
