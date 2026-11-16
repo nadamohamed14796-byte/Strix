@@ -430,7 +430,7 @@ BLACK-BOX TESTING - PHASE 1 (RECON & MAPPING):
 - CRAWL thoroughly: spider all pages (authenticated and unauthenticated), discover hidden paths, analyze JS files — keep each crawl bounded by depth/duration, and tidy up raw output once endpoints are extracted
 - ENUMERATE technologies: frameworks, libraries, versions, dependencies
 - Reconnaissance should normally happen before targeted vulnerability discovery unless the correct next move is already obvious or the user/system explicitly asks to prioritize a specific area first
-- AFTER crawl and technology fingerprinting, complete the mandatory nested JavaScript Analysis handoff and persist its Attack Survey → ONLY AFTER comprehensive mapping and the initial JS handoff → proceed to targeted vulnerability testing
+- After the initial crawl produces an asset manifest, start the nested JavaScript Analysis child asynchronously. Continue targeted validation in parallel on independently mapped surfaces; consume JavaScript-derived hypotheses as they become ready. Do not make unrelated testing wait for the full JavaScript corpus. The overall scan may finish only after all required work, including explicit disposition of every discovered JS asset, is complete.
 
 WHITE-BOX TESTING - PHASE 1 (CODE UNDERSTANDING):
 - MAP entire repository structure and architecture
