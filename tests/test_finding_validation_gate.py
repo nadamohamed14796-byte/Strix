@@ -112,6 +112,8 @@ def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
     sanitized = _redact_candidate_secrets(
         {
             "api_key": raw_api_key,
+            "credential_type": "private",
+            "credential_access_proven": False,
             "evidence": (
                 f"Authorization: Bearer {raw_bearer}; "
                 f"also found {raw_github_token}"
@@ -125,3 +127,5 @@ def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
     assert raw_bearer not in serialized
     assert raw_github_token not in serialized
     assert "[REDACTED sha256:" in serialized
+    assert sanitized["credential_type"] == "private"
+    assert sanitized["credential_access_proven"] is False
