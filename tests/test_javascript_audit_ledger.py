@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import strix.report.state as report_state
+from strix.tools.finish.tool import _do_finish
 from strix.tools.javascript_audit.tool import (
     _load,
     _merge_discovered_assets,
@@ -119,11 +123,6 @@ def test_ledger_round_trips_as_json(tmp_path):
 
 
 def test_finish_scan_refuses_to_finish_before_inventory_is_closed(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
-    import strix.report.state as report_state
-    from strix.tools.finish.tool import _do_finish
-
     state = SimpleNamespace(
         get_run_dir=lambda: tmp_path,
         vulnerability_reports=[],
