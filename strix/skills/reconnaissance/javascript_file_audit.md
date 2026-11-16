@@ -61,7 +61,7 @@ Before declaring the JavaScript phase complete:
 
 ## 5. Dynamic validation and evidence
 
-The validation outcome must be classified as **Dynamically validated** only when reproducible evidence demonstrates the claimed effect.
+The validation outcome must be classified as **dynamically validated** only when reproducible evidence demonstrates the claimed effect.
 
 Static code observations are hypotheses, not proof of exploitability. Validate a candidate only against an explicitly in-scope live endpoint and with a minimal, controlled test. A payload is confirmed working only when the response or resulting behavior demonstrates the claimed effect; preserve the exact request, response, relevant status/body markers, and reproduction conditions. A reflected string, scanner label, HTTP 200, or lack of an error is not sufficient by itself.
 
