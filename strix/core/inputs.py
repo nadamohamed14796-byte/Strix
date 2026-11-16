@@ -216,7 +216,6 @@ def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
         source = {"target_index": source_index, "source_kind": source_kind}
         if existing is not None:
             existing["sources"].append(source)
-            ledger_by_id[existing["target_id"]]["sources"].append(source)
             return
 
         identity_json = json.dumps(identity, ensure_ascii=False, separators=(",", ":"))
