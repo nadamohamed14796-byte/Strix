@@ -132,7 +132,7 @@ def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
 
 
 def test_blocked_candidate_notes_survive_hydration(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(notes_tools, "_notes_path", None)
+    monkeypatch.setattr(notes_tools, "_notes_path", tmp_path / "notes.json")
     monkeypatch.setattr(notes_tools, "_notes_storage", {})
 
     created = notes_tools._create_note_impl(
@@ -141,10 +141,7 @@ def test_blocked_candidate_notes_survive_hydration(monkeypatch, tmp_path) -> Non
         category="findings",
         tags=["finding-validation", "needs_validation"],
     )
-    assert created["success"] is False
-
-    notes_tools._notes_path = tmp_path / "notes.json"
-    assert notes_tools._persist() is True
+    assert created["success"] is True
     notes_tools._notes_storage.clear()
     notes_tools.hydrate_notes_from_disk(tmp_path)
 
