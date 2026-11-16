@@ -93,17 +93,29 @@ class AgentCoordinator:
 
         async with self._lock:
             if self._target_ledger_initialized:
-                if set(normalized) != set(self.target_ledger):
+                existing_ids = set(self.target_ledger)
+                incoming_ids = set(normalized)
+                if not existing_ids.issubset(incoming_ids):
                     raise ValueError(
-                        "The authorized target set changed; refusing to resume a different scope"
+                        "The authorized target set changed; refusing to remove prior scope"
                     )
-                for target_id, entry in normalized.items():
+                for target_id in existing_ids:
+                    entry = normalized[target_id]
                     current = self.target_ledger[target_id]
                     for key in ("type", "value", "workspace_path"):
                         if current.get(key, "") != entry.get(key, ""):
                             raise ValueError(
                                 f"Target identity changed for {target_id}; refusing scope drift"
                             )
+                additions = incoming_ids - existing_ids
+                if additions and self.scan_phase != "recon":
+                    raise ValueError(
+                        "New targets can only be appended before the scan enters Testing"
+                    )
+                # Preserve every existing status, owner, attempt count, and summary.
+                # Only genuinely new authorized targets enter the Recon queue.
+                for target_id in additions:
+                    self.target_ledger[target_id] = normalized[target_id]
             else:
                 self.target_ledger = normalized
                 self._target_ledger_initialized = True
