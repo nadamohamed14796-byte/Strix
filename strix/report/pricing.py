@@ -10,7 +10,7 @@ from typing import Any, cast
 def resolve_litellm_model(model: str) -> str | None:
     """Return a provider-qualified model name that LiteLLM can price."""
     try:
-        import litellm
+        import litellm  # noqa: PLC0415
 
         normalized = model.strip()
         for prefix in ("litellm/", "any-llm/", "openai/"):
@@ -57,6 +57,6 @@ def resolve_litellm_model(model: str) -> str | None:
             "grok-4.5": "xai/grok-4.5",
             "MiniMax-M3": "minimax/MiniMax-M3",
         }
-        return known_provider_aliases.get(normalized)  # noqa: TRY300
+        return known_provider_aliases.get(normalized)
     except Exception:  # noqa: BLE001
         return None
