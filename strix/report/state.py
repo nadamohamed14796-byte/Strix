@@ -357,6 +357,7 @@ class ReportState:
         http_exchange_ids: list[str] | None = None,
         fix_verification: str | None = None,
         fix_pr_body: str | None = None,
+        validation_gate: dict[str, Any] | None = None,
         finding_class: str | None = None,
         dependency_metadata: dict[str, str] | None = None,
         agent_id: str | None = None,
@@ -420,6 +421,8 @@ class ReportState:
         if fix_pr_body:
             report["fix_pr_body"] = fix_pr_body.strip()
         report["finding_class"] = (finding_class or "dynamic").strip().lower()
+        if validation_gate:
+            report["validation_gate"] = validation_gate
         if dependency_metadata:
             report["dependency_metadata"] = dependency_metadata
         if agent_id:
