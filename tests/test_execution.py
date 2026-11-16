@@ -1732,9 +1732,7 @@ async def test_create_agent_requires_target_ids_and_root_owned_recon_batches() -
     assert "target_ids are required" in missing_ids["error"]
     assert spawned == []
 
-    accepted = await _call(
-        "root", None, {**base_args, "target_ids": ["target-a"]}
-    )
+    accepted = await _call("root", None, {**base_args, "target_ids": ["target-a"]})
     assert accepted["success"] is True
     assert spawned[0]["target_ids"] == ["target-a"]
 
@@ -1745,9 +1743,7 @@ async def test_create_agent_requires_target_ids_and_root_owned_recon_batches() -
         phase="recon",
         target_ids=["target-a"],
     )
-    delegated = await _call(
-        "recon-a", "root", {**base_args, "target_ids": ["target-a"]}
-    )
+    delegated = await _call("recon-a", "root", {**base_args, "target_ids": ["target-a"]})
     assert delegated["success"] is False
     assert "Recon workers cannot delegate" in delegated["error"]
     assert len(spawned) == 1
