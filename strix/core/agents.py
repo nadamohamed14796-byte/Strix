@@ -70,6 +70,7 @@ class AgentCoordinator:
         self._target_append_handler: (
             Callable[[list[dict[str, Any]]], Awaitable[dict[str, Any]]] | None
         ) = None
+        self._target_append_ready = asyncio.Event()
 
     def set_target_append_handler(
         self,
@@ -77,12 +78,19 @@ class AgentCoordinator:
     ) -> None:
         """Register the active-run handler that updates scope and root instructions."""
         self._target_append_handler = handler
+        self._target_append_ready.set()
 
     async def append_targets(self, entries: list[dict[str, Any]]) -> dict[str, Any]:
         """Append user-authorized targets to the currently running Recon queue."""
         if self._target_append_handler is None:
+            try:
+                await asyncio.wait_for(self._target_append_ready.wait(), timeout=30)
+            except TimeoutError:
+                raise RuntimeError("Live target addition is not ready for this scan") from None
+        handler = self._target_append_handler
+        if handler is None:
             raise RuntimeError("Live target addition is unavailable for this scan")
-        return await self._target_append_handler(entries)
+        return await handler(entries)
 
     async def append_target_entries(
         self,
