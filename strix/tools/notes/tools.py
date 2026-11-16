@@ -361,9 +361,9 @@ async def create_note(
 ) -> str:
     """Document an observation, finding, methodology step, or research note.
 
-    Notes are visible to every agent in the same scan for the lifetime
-    of the run; they live in-memory only and are cleared when the
-    process exits. Each note records the agent that wrote it, so
+    Notes are shared by agents in the same scan and persisted in the
+    scan state directory's notes.json file for resume. Each note records
+    the agent that wrote it, so
     ``list_notes`` / ``get_note`` show the author (``agent_name``) and
     flag your own notes with ``by_you``.
 
