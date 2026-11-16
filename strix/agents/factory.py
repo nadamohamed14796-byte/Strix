@@ -492,6 +492,7 @@ _BASE_TOOLS: tuple[Tool, ...] = (
     think,
     load_skill,
     record_javascript_asset,
+    complete_javascript_inventory,
     create_todo,
     list_todos,
     update_todo,
