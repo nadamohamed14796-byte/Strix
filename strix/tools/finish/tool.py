@@ -105,6 +105,35 @@ def _do_finish(
         }
 
 
+async def _target_phase_finish_error(coordinator: Any) -> dict[str, Any] | None:
+    """Do not let a scoped scan finish before its global Recon/Testing gate."""
+    async with coordinator._lock:
+        ledger = coordinator.target_ledger
+        unresolved = [
+            target_id for target_id, entry in ledger.items()
+            if entry.get("status") not in {"recon_complete", "blocked"}
+        ]
+        testable = any(entry.get("status") == "recon_complete" for entry in ledger.values())
+        phase = coordinator.scan_phase
+
+    if unresolved:
+        return {
+            "success": False,
+            "scan_completed": False,
+            "error": "Cannot finish while authorized targets still lack terminal Recon outcomes",
+            "unreconciled_target_count": len(unresolved),
+            "unreconciled_target_ids": unresolved[:20],
+            "truncated": len(unresolved) > 20,
+        }
+    if testable and phase != "testing":
+        return {
+            "success": False,
+            "scan_completed": False,
+            "error": "Cannot finish before the root opens the global Testing phase",
+        }
+    return None
+
+
 @function_tool(timeout=60)
 async def finish_scan(
     ctx: RunContextWrapper,
@@ -287,6 +316,8 @@ async def finish_scan(
     me = inner.get("agent_id")
     parent_id = inner.get("parent_id")
     if coordinator is not None and parent_id is None and me is not None:
+        if phase_error := await _target_phase_finish_error(coordinator):
+            return json.dumps(phase_error, ensure_ascii=False, default=str)
         active_agents = await coordinator.active_agents_except(me)
         if active_agents and coordinator.reserve_stopped:
             active_agents = []
