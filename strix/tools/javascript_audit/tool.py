@@ -82,7 +82,9 @@ async def record_javascript_asset(
         len(content_sha256) != 64
         or any(c not in "0123456789abcdefABCDEF" for c in content_sha256)
     ):
-        return json.dumps({"success": False, "error": "content_sha256 must be a 64-character hex digest"})
+        return json.dumps(
+            {"success": False, "error": "content_sha256 must be a 64-character hex digest"}
+        )
 
     path = _ledger_path()
     if path is None:
@@ -112,7 +114,10 @@ async def record_javascript_asset(
         except (OSError, RuntimeError, TypeError) as exc:
             logger.exception("Failed to persist JavaScript audit asset")
             return json.dumps({"success": False, "error": f"Could not persist asset: {exc}"})
-    return json.dumps({"success": True, "asset": entry, "tracked_assets": len(assets)}, ensure_ascii=False)
+    return json.dumps(
+        {"success": True, "asset": entry, "tracked_assets": len(assets)},
+        ensure_ascii=False,
+    )
 
 
 @function_tool(timeout=30)
@@ -133,7 +138,9 @@ async def complete_javascript_inventory() -> str:
             _save(path, data)
         except (OSError, RuntimeError, TypeError) as exc:
             logger.exception("Failed to complete JavaScript inventory")
-            return json.dumps({"success": False, "error": f"Could not persist inventory completion: {exc}"})
+            return json.dumps(
+                {"success": False, "error": f"Could not persist inventory completion: {exc}"}
+            )
     return json.dumps({
         "success": True,
         "inventory_complete": True,
@@ -145,7 +152,13 @@ def javascript_audit_status(run_dir: Path) -> dict[str, Any]:
     """Return audit coverage for finish_scan; absent ledger means not initialized."""
     path = run_dir / "javascript_audit.json"
     if not path.exists():
-        return {"initialized": False, "inventory_complete": False, "total": 0, "pending": [], "terminal": []}
+        return {
+            "initialized": False,
+            "inventory_complete": False,
+            "total": 0,
+            "pending": [],
+            "terminal": [],
+        }
     data = _load(path)
     assets = data["assets"]
     pending = [
