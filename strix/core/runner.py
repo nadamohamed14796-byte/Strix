@@ -288,6 +288,15 @@ async def run_strix_scan(
             coordinator.set_budget_extender(hooks.extend_budget)
 
         scope_context = build_scope_context(scan_config)
+        await coordinator.initialize_target_ledger(
+            scope_context.get("target_ledger", []) if isinstance(scope_context, dict) else []
+        )
+        if isinstance(scope_context, dict):
+            # A resumed ledger is authoritative: preserve completed Recon state
+            # in the root/child prompt instead of presenting every old target as queued.
+            scope_context["target_ledger"] = [
+                dict(entry) for entry in coordinator.target_ledger.values()
+            ]
         root_context = _merge_root_prompt_context(scope_context, extra_system_prompt_context)
         root_instructions = _compose_root_instructions_override(
             root_instructions_override,
@@ -318,10 +327,6 @@ async def run_strix_scan(
                 task=root_task,
                 skills=skills,
             )
-
-        await coordinator.initialize_target_ledger(
-            scope_context.get("target_ledger", []) if isinstance(scope_context, dict) else []
-        )
 
         child_agent_builder = make_child_factory(
             scan_mode=scan_mode,
