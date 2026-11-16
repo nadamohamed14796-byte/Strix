@@ -390,3 +390,47 @@ def test_user_headers_override_openrouter_attribution() -> None:
     assert headers["X-Title"] == "Custom"
     assert headers["X-Tenant"] == "acme"
     assert headers["HTTP-Referer"] == "https://strix.ai"
+
+
+def test_build_scope_context_creates_stable_deduplicated_target_ledger() -> None:
+    config = {
+        "targets": [
+            {"type": "web_application", "details": {"target_url": "https://app.example.com"}},
+            {"type": "web_application", "details": {"target_url": "https://app.example.com"}},
+            {"type": "ip_address", "details": {"target_ip": "192.0.2.10"}},
+        ],
+    }
+
+    first = build_scope_context(config)
+    second = build_scope_context(config)
+
+    assert len(first["target_ledger"]) == 2
+    assert [item["target_id"] for item in first["target_ledger"]] == [
+        item["target_id"] for item in second["target_ledger"]
+    ]
+    web_target = first["target_ledger"][0]
+    assert web_target["status"] == "queued"
+    assert len(web_target["sources"]) == 2
+    assert first["authorized_targets"][0]["target_id"] == web_target["target_id"]
+
+
+def test_build_scope_context_tracks_api_spec_hosts_as_separate_targets() -> None:
+    scope = build_scope_context(
+        {
+            "targets": [
+                {
+                    "type": "api_spec",
+                    "details": {
+                        "target_spec": "openapi.yaml",
+                        "base_urls": ["https://api.example.com"],
+                    },
+                },
+            ],
+        }
+    )
+
+    assert [item["type"] for item in scope["target_ledger"]] == [
+        "api_spec",
+        "web_application",
+    ]
+    assert scope["target_ledger"][1]["sources"][0]["source_kind"] == "api_spec_base_url"
