@@ -236,7 +236,9 @@ def test_root_prompt_enforces_scan_wide_recon_before_testing() -> None:
     skill = (root / "strix/skills/coordination/root_agent.md").read_text(encoding="utf-8")
 
     for required in (
-        "MULTI-TARGET PHASE BARRIER",
+        "SCAN-WIDE TARGET PHASE BARRIER",
+        "target_ledger",
+        "target_outcomes",
         "RECON-ONLY",
         "global phase gate",
         "every ledger target",
