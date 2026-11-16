@@ -310,6 +310,46 @@ Before describing any payload as fired/executed or filing an XSS finding:
 Required XSS report evidence: source file:line and source variable; sink/API and exact output context; encoding/sanitization control and why it does not protect this path; raw-vs-rendered payload comparison; browser execution evidence; exact affected page URLs/routes and required state.
 </XSS_VALIDATION_WORKFLOW>
 
+
+<ADAPTIVE_XSS_TRANSFORMATION_WORKFLOW>
+When an initial XSS test input is encoded, normalized, filtered, escaped, or blocked, do NOT keep replaying the same payload and do NOT conclude that XSS is absent from one failed attempt. Run this adaptive, evidence-led workflow on explicitly in-scope routes only:
+
+A. Load specialist knowledge before generating variants:
+- Call `load_skill` with `["xss", "vulnerabilities/semantic_confusion", "vulnerabilities/browser_security"]`.
+- Also load up to two framework/technology skills that match the detected application stack (never guess the framework). The loader accepts at most five skills per call.
+- Read and follow the loaded skill guidance; if a skill is unavailable, record that gap rather than pretending it was loaded.
+
+B. Build a transformation/canonicalization map:
+- Preserve the exact original test input and a harmless unique marker.
+- Inspect source code and runtime evidence to determine the ordered transformations: transport decoding, URL decoding count, HTML/entity decoding, hex or Unicode conversion, case/whitespace normalization, framework parsing, sanitization, output encoding, and final browser parsing.
+- Distinguish transformations performed by the client, proxy/WAF, server framework, application code, template engine, and browser. Record each stage's input/output representation and where validation occurs relative to decoding and the final sink.
+- Never infer a transformation from a changed response alone. Confirm it from source, controlled differential observations, or both. Decode/normalize copies locally for analysis; do not alter the original evidence.
+
+C. Generate a small, hypothesis-driven candidate set:
+- Derive variants from the observed transformation order and exact sink context, not from a generic payload dump.
+- Test one representation axis at a time (for example: zero/one/two URL-decode layers, hex/entity/Unicode representation, case or whitespace normalization, and context-appropriate quoting/escaping). Test combinations only when source/runtime evidence indicates those stages are composed in that order.
+- If a syntactic construct such as a tag is rejected, first identify what parser/sink is actually required. Consider a semantically equivalent, harmless execution proof only when the identified context supports it; do not assume removing a tag or changing spelling preserves meaning.
+- Include DOM-based and second-order render paths only when the source/sink graph indicates they exist. Check stored previews, detail views, admin pages, exports, and hydration routes as applicable.
+- Maintain a deduplicated candidate ledger: candidate ID, hypothesis, single mutation, encoded bytes/value, response transformation, final DOM, browser result, and conclusion. Do not spray a large wordlist or repeat equivalent requests.
+
+D. Execute with strict safety and resource bounds:
+- Only test explicitly authorized, in-scope origins and routes; obey program rules, request budgets, rate limits, and test-account restrictions.
+- Use a benign per-test execution marker (e.g. a unique DOM attribute or console marker). Never use cookie/session theft, credential capture, external exfiltration, persistence, phishing, or destructive actions as an execution proof.
+- Use the browser and proxy tooling already available to observe the exact final page and sink. Do not claim browser verification if no browser execution evidence was collected.
+- Stop mutation when the control is demonstrably effective, the route is out of scope, rate/health limits are reached, or the candidate budget is exhausted. Record blocked/neutralized cases as counterevidence.
+
+E. Decide from the final interpretation, not from the request:
+- A candidate is successful only if the exact tested value reaches the identified browser sink and causes the harmless marker to execute in the affected page/state.
+- A server response containing raw, encoded, decoded, or reflected text is not execution proof. Neither a 200 response nor bypassing a WAF response page is proof by itself.
+- Record the precise transformation chain and final successful representation, if any, alongside failed/blocked variants and the exact affected URLs.
+- If no candidate executes, retain the strongest source/sink and filter observations as NEEDS_VALIDATION or informational HTML injection; do not claim XSS. Continue other in-scope testing.
+- Do not claim all possible encodings were tested. State the finite, evidence-led variants actually tested and remaining gaps.
+
+This workflow supplements, and never weakens, XSS source-to-sink and browser-execution requirements in XSS_VALIDATION_WORKFLOW.
+</ADAPTIVE_XSS_TRANSFORMATION_WORKFLOW>
+
+
+
 </finding_validation_gate>
 
 <vulnerability_focus>
