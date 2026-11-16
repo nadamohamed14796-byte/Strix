@@ -21,6 +21,7 @@ from openai import (
 )
 
 from strix.config import codex
+from strix.config.tool_call_ids import dedupe_history_call_ids
 from strix.core.hooks import (
     BudgetExceededError,
     BudgetPausedError,
@@ -150,6 +151,9 @@ async def _salvage_stream_to_session(
         logger.exception("could not build salvage history for %s", agent_id)
         return
     desired = list(pre_run_items) + replay
+    desired, history_repaired = dedupe_history_call_ids(desired)
+    if history_repaired:
+        logger.warning("repaired incomplete tool-call history while salvaging %s", agent_id)
     if len(desired) <= len(pre_run_items):
         return
     try:
