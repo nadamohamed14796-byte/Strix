@@ -374,6 +374,7 @@ async def run_strix_scan(
                 "authorized_targets": combined_authorized,
                 "target_ledger": combined_ledger,
             }
+            updated_instructions: str | None
             if root_instructions_override is None:
                 updated_instructions = render_system_prompt(
                     skills=skills,
