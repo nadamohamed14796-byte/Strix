@@ -337,7 +337,9 @@ async def run_strix_scan(
                 if target.get("type") not in {"web_application", "ip_address"}
             ]
             if unsupported:
-                raise ValueError("Live append currently supports web applications and IP addresses only")
+                raise ValueError(
+                    "Live append currently supports web applications and IP addresses only"
+                )  # noqa: TRY301 - callback runs after scan setup has returned.
             incoming_scope = build_scope_context({"targets": target_infos})
             existing_targets = list(scan_config.get("targets", []) or [])
             offset = len(existing_targets)
@@ -391,12 +393,16 @@ async def run_strix_scan(
                     system_prompt_context=updated_root_context,
                 )
             if updated_instructions is None:
-                raise RuntimeError("Could not refresh root instructions for the expanded scope")
+                raise RuntimeError(
+                    "Could not refresh root instructions for the expanded scope"
+                )  # noqa: TRY301 - callback runs after scan setup has returned.
 
             def persist_scope_update() -> None:
                 report_state = get_global_report_state()
                 if report_state is None:
-                    raise RuntimeError("Report state is unavailable for live target addition")
+                    raise RuntimeError(
+                        "Report state is unavailable for live target addition"
+                    )  # noqa: TRY301 - callback runs after scan setup has returned.
                 updated_record = {**report_state.run_record, "targets_info": combined_targets}
                 write_run_record(run_dir, updated_record)
                 report_state.run_record.update(updated_record)
