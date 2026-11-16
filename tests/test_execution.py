@@ -1299,7 +1299,7 @@ async def test_scan_phase_gate_requires_root_reconciliation_and_completed_recon_
             reconciliation_summary="all targets reconciled",
         )
 
-    with pytest.raises(ValueError, match="not all completed"):
+    with pytest.raises(ValueError, match="still active"):
         await coordinator.advance_scan_phase(
             "root",
             confirmed_all_targets_reconciled=True,
