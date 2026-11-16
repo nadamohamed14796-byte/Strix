@@ -186,3 +186,58 @@ def test_missing_gate_classification_fails_closed() -> None:
 
     assert status == "NEEDS_VALIDATION"
     assert reason is not None
+
+
+
+def test_xss_reflection_without_execution_is_not_reportable() -> None:
+    from strix.tools.reporting.tool import _xss_validation_gate
+
+    status, reason = _xss_validation_gate(
+        title="Reflected XSS",
+        description="Input is reflected in the HTTP response.",
+        technical_analysis="Potential cross-site scripting via reflected input.",
+        cwe="CWE-79",
+        xss_validation=None,
+    )
+    assert status == "NEEDS_VALIDATION"
+    assert "browser-execution" in reason
+
+
+def test_xss_requires_source_encoding_sink_browser_and_affected_page_evidence() -> None:
+    from strix.tools.reporting.tool import _xss_validation_gate
+
+    status, _reason = _xss_validation_gate(
+        title="Cross-site scripting",
+        description="Untrusted input reaches an HTML sink.",
+        technical_analysis="XSS source-to-sink trace reviewed.",
+        cwe="CWE-79",
+        xss_validation={
+            "source_reviewed": True,
+            "source_location": "app/routes.py:42",
+            "source_to_sink_trace": "request parameter -> template variable -> innerHTML",
+            "encoding_assessed": True,
+            "output_context": "HTML element context",
+            "encoding_assessment": "No context-appropriate encoding on this path",
+            "sink_reached": True,
+            "sink_location": "app/client.js:88",
+            "browser_execution_proven": True,
+            "rendered_payload_evidence": "Harmless marker rendered as executable DOM content",
+            "browser_execution_evidence": "Browser observed the benign execution marker",
+            "affected_pages": ["/search?q=test"],
+        },
+    )
+    assert status is None
+
+
+def test_xss_does_not_require_xss_evidence_for_non_xss_findings() -> None:
+    from strix.tools.reporting.tool import _xss_validation_gate
+
+    status, reason = _xss_validation_gate(
+        title="Broken access control",
+        description="Unauthorized record access.",
+        technical_analysis="IDOR",
+        cwe="CWE-639",
+        xss_validation=None,
+    )
+    assert status is None
+    assert reason is None
