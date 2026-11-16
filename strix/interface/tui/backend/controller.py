@@ -404,7 +404,9 @@ class TuiController:
         if target_infos[0].get("type") not in {"web_application", "ip_address"}:
             raise ValueError("Live append supports web applications and IP addresses only")
         if self.scan_loop is asyncio.get_running_loop():
-            result = await self.coordinator.append_targets(target_infos)
+            result = cast(
+                "dict[str, Any]", await self.coordinator.append_targets(target_infos)
+            )
         else:
             future = asyncio.run_coroutine_threadsafe(
                 self.coordinator.append_targets(target_infos), self.scan_loop
