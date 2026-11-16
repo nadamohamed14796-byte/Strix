@@ -471,7 +471,7 @@ async def advance_scan_phase(
 
 
 @function_tool(timeout=120)
-async def create_agent(
+async def create_agent(  # noqa: PLR0911 - each validation failure returns a precise tool error.
     ctx: RunContextWrapper,
     name: str,
     task: str,
