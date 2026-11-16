@@ -1,6 +1,10 @@
 """Tests for the mandatory finding reportability gate."""
 
-from strix.tools.reporting.tool import _finding_validation_gate
+from strix.tools.notes import tools as notes_tools
+from strix.tools.reporting.tool import (
+    _finding_validation_gate,
+    _preserve_validation_candidate,
+)
 
 
 def test_recon_only_candidate_is_informational() -> None:
@@ -80,3 +84,20 @@ def test_small_but_proven_platform_impact_remains_reportable() -> None:
     )
     assert status is None
     assert reason is None
+
+
+
+def test_blocked_candidate_surfaces_note_persistence_failure(monkeypatch) -> None:
+    monkeypatch.setattr(notes_tools, "_notes_path", None)
+    monkeypatch.setattr(notes_tools, "_notes_storage", {})
+
+    result = _preserve_validation_candidate(
+        "Unverified API credential",
+        {"source": "app.js:42"},
+        "NEEDS_VALIDATION",
+        "Credential access has not been demonstrated.",
+    )
+
+    assert result["success"] is False
+    assert "persistence failed" in result["error"].lower()
+    assert len(notes_tools._notes_storage) == 1
