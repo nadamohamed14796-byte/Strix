@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 Status = Literal["running", "waiting", "completed", "stopped", "crashed", "failed", "budget_paused"]
+ScanPhase = Literal["recon", "testing"]
 
 # Why an agent parked. The user can message any agent, so this - not the agent's
 # position in the tree - decides whether waiting is bounded: only an agent waiting
@@ -46,6 +47,7 @@ class AgentCoordinator:
 
     def __init__(self) -> None:
         self.statuses: dict[str, Status] = {}
+        self.scan_phase: ScanPhase = "recon"
         self.parent_of: dict[str, str | None] = {}
         self.names: dict[str, str] = {}
         self.metadata: dict[str, dict[str, Any]] = {}
@@ -69,6 +71,48 @@ class AgentCoordinator:
 
     def mark_shutting_down(self) -> None:
         self.is_shutting_down = True
+
+    async def phase_for(self, agent_id: str) -> ScanPhase:
+        async with self._lock:
+            phase = self.metadata.get(agent_id, {}).get("phase", self.scan_phase)
+            return phase if phase in {"recon", "testing"} else self.scan_phase
+
+    async def advance_scan_phase(
+        self,
+        agent_id: str,
+        *,
+        confirmed_all_targets_reconciled: bool,
+        reconciliation_summary: str,
+    ) -> dict[str, Any]:
+        """Open Testing only after root reconciliation and completed Recon workers."""
+        async with self._lock:
+            if self.parent_of.get(agent_id) is not None:
+                raise ValueError("Only the root agent may advance the scan-wide phase")
+            if self.scan_phase != "recon":
+                raise ValueError(f"Cannot advance from scan phase {self.scan_phase!r}")
+            if not confirmed_all_targets_reconciled or not reconciliation_summary.strip():
+                raise ValueError(
+                    "Root must explicitly confirm complete target reconciliation and provide a summary"
+                )
+            unfinished = [
+                aid for aid, metadata in self.metadata.items()
+                if aid != agent_id
+                and metadata.get("phase", "recon") == "recon"
+                and self.statuses.get(aid) != "completed"
+            ]
+            if unfinished:
+                details = ", ".join(
+                    f"{aid}={self.statuses.get(aid, 'unknown')}" for aid in unfinished
+                )
+                raise ValueError(f"Recon workers are not all completed: {details}")
+            self.scan_phase = "testing"
+            self.metadata.setdefault(agent_id, {})["phase"] = "testing"
+        await self._maybe_snapshot()
+        return {
+            "success": True,
+            "scan_phase": "testing",
+            "reconciliation_summary": reconciliation_summary.strip(),
+        }
 
     @property
     def budget_stopped(self) -> bool:
@@ -154,8 +198,19 @@ class AgentCoordinator:
         *,
         task: str | None = None,
         skills: list[str] | None = None,
+        phase: ScanPhase | None = None,
     ) -> None:
         async with self._lock:
+            parent_phase = (
+                self.metadata.get(parent_id, {}).get("phase", self.scan_phase)
+                if parent_id is not None else self.scan_phase
+            )
+            assigned_phase = phase or parent_phase
+            if assigned_phase != self.scan_phase or assigned_phase != parent_phase:
+                raise ValueError(
+                    f"Cannot register {assigned_phase!r} agent while scan/parent phase is "
+                    f"{self.scan_phase!r}/{parent_phase!r}"
+                )
             self.statuses[agent_id] = "running"
             self.parent_of[agent_id] = parent_id
             self.names[agent_id] = name
@@ -163,6 +218,7 @@ class AgentCoordinator:
             self.metadata[agent_id] = {
                 "task": task or "",
                 "skills": list(skills or []),
+                "phase": assigned_phase,
             }
             self.runtimes.setdefault(agent_id, AgentRuntime())
         logger.info("agent.register %s (%s) parent=%s", agent_id, name, parent_id or "-")
@@ -467,6 +523,7 @@ class AgentCoordinator:
         async with self._lock:
             return {
                 "statuses": dict(self.statuses),
+                "scan_phase": self.scan_phase,
                 "parent_of": dict(self.parent_of),
                 "names": dict(self.names),
                 "metadata": {aid: dict(md) for aid, md in self.metadata.items()},
@@ -488,9 +545,15 @@ class AgentCoordinator:
     async def restore(self, snap: dict[str, Any]) -> None:
         async with self._lock:
             self.statuses = dict(snap.get("statuses", {}))
+            self.scan_phase = "testing" if snap.get("scan_phase") == "testing" else "recon"
             self.parent_of = dict(snap.get("parent_of", {}))
             self.names = dict(snap.get("names", {}))
             self.metadata = {aid: dict(md) for aid, md in snap.get("metadata", {}).items()}
+            for aid in self.statuses:
+                if self.metadata.get(aid, {}).get("phase") not in {"recon", "testing"}:
+                    parent = self.parent_of.get(aid)
+                    inherited = self.metadata.get(parent, {}).get("phase", self.scan_phase)
+                    self.metadata.setdefault(aid, {})["phase"] = inherited
             self.pending_counts = dict(snap.get("pending_counts", {}))
             self.errors = dict(snap.get("errors", {}))
             self.recovery_counts = dict(snap.get("recovery_counts", {}))
