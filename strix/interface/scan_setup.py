@@ -10,12 +10,13 @@ errors and exiting the process is the caller's job.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from strix.config import Settings, codex, load_settings
-from strix.core.paths import run_dir_for
+from strix.core.paths import run_dir_for, runtime_state_dir
 from strix.interface.utils import (
     assign_workspace_subdirs,
     clone_repository,
@@ -159,6 +160,91 @@ def _resolve_api_spec(target: str, details: dict[str, Any]) -> None:
 
     details["spec_title"] = spec_title(raw)
     details["base_urls"] = base_urls
+
+
+def prepare_resume_target_additions(
+    args: argparse.Namespace,
+    additions: list[dict[str, Any]],
+) -> None:
+    """Append newly authorized web/source targets to an existing Recon run.
+
+    Existing target records and ledger progress are preserved. The coordinator
+    performs the authoritative identity check again when the run is restored.
+    """
+    if not additions:
+        return
+
+    from strix.report.writer import read_run_record, write_run_record
+
+    run_dir = run_dir_for(args.resume)
+    snapshot_path = runtime_state_dir(run_dir) / "agents.json"
+    try:
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot inspect the existing scan state: {exc}") from exc
+    if snapshot.get("scan_phase", "recon") != "recon":
+        raise ValueError(
+            "Targets can only be appended while the existing scan is still in Recon. "
+            "The scan has already entered Testing."
+        )
+
+    existing = list(args.targets_info or [])
+    known = {
+        (str(item.get("type", "")), str(item.get("original", "")).strip().lower())
+        for item in existing
+        if isinstance(item, dict)
+    }
+    fresh = [
+        item for item in additions
+        if (str(item.get("type", "")), str(item.get("original", "")).strip().lower())
+        not in known
+    ]
+    if not fresh:
+        return
+
+    # New source directories must not collide with workspace paths already
+    # persisted for the existing targets; changing an old path would change its
+    # stable target ID and invalidate its Recon history.
+    assign_workspace_subdirs(fresh)
+    used_subdirs = {
+        str((item.get("details") or {}).get("workspace_subdir"))
+        for item in existing
+        if isinstance(item, dict) and (item.get("details") or {}).get("workspace_subdir")
+    }
+    for item in fresh:
+        details = item.get("details") or {}
+        base = details.get("workspace_subdir")
+        if not base:
+            continue
+        candidate = str(base)
+        suffix = 2
+        while candidate in used_subdirs:
+            candidate = f"{base}-{suffix}"
+            suffix += 1
+        details["workspace_subdir"] = candidate
+        used_subdirs.add(candidate)
+
+    for item in fresh:
+        if item["type"] == "repository":
+            details = item["details"]
+            details["cloned_repo_path"] = clone_repository(
+                details["target_repo"],
+                args.resume,
+                details.get("workspace_subdir"),
+            )
+
+    added_sources = collect_local_sources(fresh)
+    added_sources.extend(stage_api_specs(fresh, args.resume))
+    args.targets_info = [*existing, *fresh]
+    args.local_sources = [*(args.local_sources or []), *added_sources]
+
+    # Update only the two fields that describe authorized targets and their
+    # staged sources. Preserve timestamps, instructions, report state and all
+    # other metadata from the original run record.
+    record = read_run_record(run_dir)
+    record["targets_info"] = args.targets_info
+    record["local_sources"] = args.local_sources
+    write_run_record(run_dir, record)
 
 
 def prepare_run(args: argparse.Namespace) -> None:
