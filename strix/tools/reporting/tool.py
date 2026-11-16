@@ -1563,6 +1563,11 @@ async def create_vulnerability_report(
             fix (summary + rationale). Prose/markdown only — the code
             change itself belongs in ``code_locations``. Omit for
             black-box findings.
+        impact_type: person/platform/credential/recon/other; classify the actual consequence.
+        impact_proven: true only when direct evidence demonstrates real impact.
+        chain_complete: true only when all required exploit steps and final impact are proven.
+        credential_type: none/public_client/private; separate public client config from private secrets.
+        credential_access_proven: true only after demonstrating what access a private secret grants.
     """
     (
         http_exchange_ids,
@@ -2359,13 +2364,12 @@ async def create_dependency_report(
     - Outdated-but-not-vulnerable dependencies with no CVE.
     - Re-reporting the same CVE/package already filed.
 
-    **Reachability**: do NOT silently downgrade or suppress a finding
-    because the vulnerable code path is not reached — report it, and record
-    the verdict of the usage analysis in the structured ``reachability`` +
-    ``reachability_evidence`` fields (see the dependency-cve-scanning skill
-    for the procedure). The verdict answers one question for this advisory
-    in this codebase, "does the vulnerable code run here?", and the tool
-    rejects a report without it or without evidence:
+    **Reachability**: record whether the vulnerable code path is reachable,
+    but this does not override the mandatory reportability gate. A verified
+    advisory and affected package version establish dependency exposure; they
+    do not by themselves prove person/platform impact. If actual impact or a
+    required exploit chain is not demonstrated, the candidate is preserved as
+    a findings note rather than filed. Do not inflate reachability into impact.
 
     - ``reachable`` — the advisory's vulnerable code executes here:
       application code, or a package it calls on the application's behalf,
@@ -2498,6 +2502,11 @@ async def create_dependency_report(
             never a generic statement such as "low risk". The user reads
             this text next to the adjusted score, so an adjustment
             without it is discarded.
+        impact_type: person/platform/credential/recon/other; classify the actual consequence.
+        impact_proven: true only when direct evidence demonstrates real impact.
+        chain_complete: true only when all required exploit steps and final impact are proven.
+        credential_type: none/public_client/private; separate public client config from private secrets.
+        credential_access_proven: true only after demonstrating what access a private secret grants.
     """
     agent_id, agent_name = _caller_identity(ctx)
 
