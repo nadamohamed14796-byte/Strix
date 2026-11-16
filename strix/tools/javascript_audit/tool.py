@@ -3,6 +3,7 @@
 The ledger tracks discovered assets and their audit disposition. It does not
 fetch or execute assets; workers perform analysis and record evidence here.
 """
+
 from __future__ import annotations
 
 import asyncio
