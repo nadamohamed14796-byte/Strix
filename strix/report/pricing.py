@@ -53,7 +53,10 @@ def resolve_litellm_model(model: str) -> str | None:
         # LiteLLM's bundled catalog can lag newly released model aliases.
         # This maps the provider only; completion_cost still decides whether
         # a price is actually available before Strix records an estimate.
-        known_provider_aliases = {"grok-4.5": "xai/grok-4.5"}
+        known_provider_aliases = {
+            "grok-4.5": "xai/grok-4.5",
+            "MiniMax-M3": "minimax/MiniMax-M3",
+        }
         return known_provider_aliases.get(normalized)  # noqa: TRY300
     except Exception:  # noqa: BLE001
         return None
