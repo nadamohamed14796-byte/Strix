@@ -1006,6 +1006,7 @@ async def _do_create(
     chain_complete: bool | None = None,
     credential_type: str | None = None,
     credential_access_proven: bool | None = None,
+    xss_validation: dict[str, Any] | None = None,
     agent_id: str | None = None,
     agent_name: str | None = None,
 ) -> dict[str, Any]:
@@ -1058,6 +1059,7 @@ async def _do_create(
             "chain_complete": chain_complete,
             "credential_type": credential_type,
             "credential_access_proven": credential_access_proven,
+            "xss_validation": xss_validation,
         }
         return _preserve_validation_candidate(
             title, candidate, gate_status, gate_reason or "Validation gate blocked the report."
@@ -1274,6 +1276,7 @@ async def create_vulnerability_report(
     chain_complete: bool | None = None,
     credential_type: str | None = None,
     credential_access_proven: bool | None = None,
+    xss_validation: dict[str, Any] | None = None,
 ) -> str:
     """File a vulnerability report — one report per fully-verified finding.
 
@@ -1298,6 +1301,11 @@ async def create_vulnerability_report(
     only after all required steps. Recon-only or unproven candidates are saved as
     findings notes, not reports. Small real impacts remain reportable at lower severity.
     Rejection never deletes a candidate.
+
+    For XSS/CWE-79, provide ``xss_validation`` with source review, source-to-sink
+    trace, output context, encoding assessment, sink location, rendered-payload
+    comparison, browser-confirmed harmless execution, and exact affected pages.
+    Response reflection alone is not proof of XSS.
 
 
     - A reachable endpoint, unusual response, weak configuration, or
@@ -1739,6 +1747,7 @@ async def create_vulnerability_report(
         impact_type=impact_type, impact_proven=impact_proven,
         chain_complete=chain_complete, credential_type=credential_type,
         credential_access_proven=credential_access_proven,
+        xss_validation=xss_validation,
         agent_id=agent_id, agent_name=agent_name,
     )
     return json.dumps(_with_warning(result, http_exchange_warning), ensure_ascii=False, default=str)
