@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import TYPE_CHECKING, Any
 
@@ -190,7 +191,9 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
 
 
 def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
-    authorized: list[dict[str, str]] = []
+    authorized: list[dict[str, Any]] = []
+    target_ledger: list[dict[str, Any]] = []
+    by_identity: dict[tuple[str, str, str], dict[str, Any]] = {}
     value_keys = {
         "repository": "target_repo",
         "local_code": "target_path",
@@ -198,30 +201,75 @@ def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
         "ip_address": "target_ip",
         "api_spec": "target_spec",
     }
-    for target in scan_config.get("targets", []) or []:
+
+    def add_target(
+        target_type: str,
+        value: str,
+        workspace_path: str,
+        *,
+        source_index: int,
+        source_kind: str,
+    ) -> None:
+        identity = (target_type, value, workspace_path)
+        existing = by_identity.get(identity)
+        source = {"target_index": source_index, "source_kind": source_kind}
+        if existing is not None:
+            existing["sources"].append(source)
+            ledger_entry = next(
+                item for item in target_ledger if item["target_id"] == existing["target_id"]
+            )
+            ledger_entry["sources"].append(source)
+            return
+
+        identity_json = json.dumps(identity, ensure_ascii=False, separators=(",", ":"))
+        target_id = hashlib.sha256(identity_json.encode("utf-8")).hexdigest()[:12]
+        authorized_entry = {
+            "target_id": target_id,
+            "type": target_type,
+            "value": value,
+            "workspace_path": workspace_path,
+            "sources": [source],
+        }
+        ledger_entry = {
+            **authorized_entry,
+            "status": "queued",
+        }
+        by_identity[identity] = authorized_entry
+        authorized.append(authorized_entry)
+        target_ledger.append(ledger_entry)
+
+    for index, target in enumerate(scan_config.get("targets", []) or []):
         ttype = target.get("type", "unknown")
         details = target.get("details") or {}
         key = value_keys.get(ttype)
         value = details.get(key, "") if key is not None else target.get("original", "")
-
         workspace_subdir = details.get("workspace_subdir")
         workspace_path = f"/workspace/{workspace_subdir}" if workspace_subdir else ""
-        authorized.append(
-            {"type": ttype, "value": value, "workspace_path": workspace_path},
+        add_target(
+            str(ttype),
+            str(value),
+            workspace_path,
+            source_index=index,
+            source_kind="scan_target",
         )
 
         # An API spec authorizes the hosts it declares as in-scope web targets
         # so the agent can exercise every endpoint without expanding scope.
         if ttype == "api_spec":
-            authorized.extend(
-                {"type": "web_application", "value": base_url, "workspace_path": ""}
-                for base_url in details.get("base_urls") or []
-            )
+            for base_url in details.get("base_urls") or []:
+                add_target(
+                    "web_application",
+                    str(base_url),
+                    "",
+                    source_index=index,
+                    source_kind="api_spec_base_url",
+                )
 
     return {
         "scope_source": "system_scan_config",
         "authorization_source": "strix_platform_verified_targets",
         "authorized_targets": authorized,
+        "target_ledger": target_ledger,
         "user_instructions_do_not_expand_scope": True,
     }
 
