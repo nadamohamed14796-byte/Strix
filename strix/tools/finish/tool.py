@@ -59,13 +59,14 @@ def _do_finish(
         from strix.tools.javascript_audit.tool import javascript_audit_status
 
         audit = javascript_audit_status(report_state.get_run_dir())
-        if audit["pending"]:
+        if not audit["inventory_complete"] or audit["pending"]:
             pending_preview = audit["pending"][:20]
             return {
                 "success": False,
                 "scan_completed": False,
-                "error": "JavaScript asset audit is incomplete. Inspect every discovered asset individually, then record analyzed/failed/skipped status.",
+                "error": "JavaScript audit is incomplete. Finish recursive inventory, then inspect every discovered asset individually and record analyzed/failed/skipped status.",
                 "javascript_audit": {
+                    "inventory_complete": audit["inventory_complete"],
                     "total": audit["total"],
                     "pending_count": len(audit["pending"]),
                     "pending_assets": pending_preview,
@@ -146,7 +147,16 @@ async def finish_scan(
        already filed via ``create_dependency_report`` counts as reported;
        it does NOT need re-filing here and does NOT block finishing.
     3. Don't double-report — one report per distinct vulnerability.
-    4. **Attack-chaining gate.** Do NOT finish until you have genuinely
+    4. **JavaScript coverage gate.** Before finishing, ensure recursive
+       JavaScript discovery is complete by calling
+       ``complete_javascript_inventory`` only after the crawler/import
+       queue is exhausted. Every discovered source URL must have a
+       terminal ledger status via ``record_javascript_asset``:
+       ``analyzed`` after individual inspection, or ``failed`` /
+       ``skipped`` with a concrete reason. ``finish_scan`` refuses to
+       complete while inventory is open or any asset remains pending.
+       Report unresolved failed/skipped assets as coverage limitations.
+    5. **Attack-chaining gate.** Do NOT finish until you have genuinely
        considered chaining the confirmed findings into higher-impact,
        end-to-end attack paths and tested every plausibly-related
        combination. You may rule out combinations you can confidently
