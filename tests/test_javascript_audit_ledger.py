@@ -210,7 +210,7 @@ def test_bulk_import_preserves_every_url_and_source_provenance():
 
     assert recorded == 2
     assert data["inventory_complete"] is False
-    assert data["assets"]["https://example.test/app.js"]["status"] == "discovered"
+    assert data["assets"]["https://example.test/app.js"]["status"] == "analyzed"
     assert data["assets"]["https://example.test/app.js"]["notes"] == (
         "Reviewed routes and auth checks"
     )
