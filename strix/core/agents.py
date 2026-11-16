@@ -628,6 +628,8 @@ class AgentCoordinator:
             return {
                 "statuses": dict(self.statuses),
                 "scan_phase": self.scan_phase,
+                "target_ledger": {tid: dict(entry) for tid, entry in self.target_ledger.items()},
+                "target_ledger_initialized": self._target_ledger_initialized,
                 "parent_of": dict(self.parent_of),
                 "names": dict(self.names),
                 "metadata": {aid: dict(md) for aid, md in self.metadata.items()},
@@ -650,6 +652,14 @@ class AgentCoordinator:
         async with self._lock:
             self.statuses = dict(snap.get("statuses", {}))
             self.scan_phase = "testing" if snap.get("scan_phase") == "testing" else "recon"
+            raw_ledger = snap.get("target_ledger", {})
+            self.target_ledger = {
+                tid: dict(entry) for tid, entry in raw_ledger.items()
+                if isinstance(tid, str) and isinstance(entry, dict)
+            } if isinstance(raw_ledger, dict) else {}
+            self._target_ledger_initialized = bool(
+                snap.get("target_ledger_initialized", "target_ledger" in snap)
+            )
             self.parent_of = dict(snap.get("parent_of", {}))
             self.names = dict(snap.get("names", {}))
             self.metadata = {aid: dict(md) for aid, md in snap.get("metadata", {}).items()}
