@@ -16,16 +16,16 @@ from agents.tool_context import ToolContext
 from openai.types.responses import ResponseOutputMessage, ResponseOutputRefusal
 
 from strix.core import execution
-from strix.report import state as report_state_module
-from strix.tools.javascript_audit import tool as javascript_audit_tool
 from strix.core.agents import AgentCoordinator
 from strix.core.execution import (
     _notify_root_on_budget_reserve,
     notify_parent_on_terminal,
 )
 from strix.core.sessions import seed_initial_input
+from strix.report import state as report_state_module
 from strix.tools.agents_graph.tools import agent_finish, create_agent, stop_agent
 from strix.tools.finish.tool import _target_phase_finish_error, finish_scan
+from strix.tools.javascript_audit import tool as javascript_audit_tool
 
 
 _NO_STREAM_EVENTS: list[Any] = []
@@ -1673,7 +1673,7 @@ async def test_failed_child_start_marks_target_assignment_retryable(
             factory=lambda **_kwargs: object(),
             agents_db_path=tmp_path / "agents.db",
             sessions_to_close=[],
-            run_config=cast(Any, None),
+            run_config=cast("Any", None),
             max_turns=5,
             interactive=False,
             parent_ctx={"agent_id": "root"},
