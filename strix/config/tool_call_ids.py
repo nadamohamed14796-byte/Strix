@@ -97,6 +97,7 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
 
     return rebuilt, changed
 
+
 def dedupe_input(model_input: str | list[Any]) -> str | list[Any]:
     if isinstance(model_input, str):
         return model_input
