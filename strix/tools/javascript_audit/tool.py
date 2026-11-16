@@ -100,8 +100,11 @@ async def record_javascript_asset(
             entry = {
                 "url": key,
                 "status": status,
-                "notes": notes.strip()[:12000],
-                "reason": reason.strip()[:4000],
+                "notes": (notes.strip() or previous.get("notes", ""))[:12000],
+                "reason": (
+                    reason.strip()
+                    or (previous.get("reason", "") if status in {"failed", "skipped"} else "")
+                )[:4000],
                 "content_sha256": (
                     content_sha256.lower() or previous.get("content_sha256", "")
                 ),
