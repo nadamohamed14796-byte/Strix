@@ -48,6 +48,8 @@ class AgentCoordinator:
     def __init__(self) -> None:
         self.statuses: dict[str, Status] = {}
         self.scan_phase: ScanPhase = "recon"
+        self.target_ledger: dict[str, dict[str, Any]] = {}
+        self._target_ledger_initialized = False
         self.parent_of: dict[str, str | None] = {}
         self.names: dict[str, str] = {}
         self.metadata: dict[str, dict[str, Any]] = {}
@@ -71,6 +73,75 @@ class AgentCoordinator:
 
     def mark_shutting_down(self) -> None:
         self.is_shutting_down = True
+
+    async def initialize_target_ledger(self, entries: list[dict[str, Any]]) -> None:
+        """Initialize or verify the canonical, persisted set of authorized targets."""
+        normalized: dict[str, dict[str, Any]] = {}
+        for entry in entries:
+            target_id = entry.get("target_id")
+            if not isinstance(target_id, str) or not target_id:
+                raise ValueError("Every target ledger entry must have a stable target_id")
+            if target_id in normalized:
+                raise ValueError(f"Duplicate target_id in canonical ledger: {target_id}")
+            normalized[target_id] = {
+                **entry,
+                "status": "queued",
+                "assigned_to": None,
+                "attempts": 0,
+                "recon_summary": "",
+            }
+
+        async with self._lock:
+            if self._target_ledger_initialized:
+                if set(normalized) != set(self.target_ledger):
+                    raise ValueError("The authorized target set changed; refusing to resume a different scope")
+                for target_id, entry in normalized.items():
+                    current = self.target_ledger[target_id]
+                    for key in ("type", "value", "workspace_path"):
+                        if current.get(key, "") != entry.get(key, ""):
+                            raise ValueError(f"Target identity changed for {target_id}; refusing scope drift")
+            else:
+                self.target_ledger = normalized
+                self._target_ledger_initialized = True
+        await self._maybe_snapshot()
+
+    async def record_target_outcomes(
+        self,
+        agent_id: str,
+        outcomes: list[dict[str, str]],
+    ) -> None:
+        """Commit one Recon outcome for every target assigned to a worker."""
+        async with self._lock:
+            metadata = self.metadata.get(agent_id, {})
+            if metadata.get("phase", "recon") != "recon":
+                raise ValueError("Target Recon outcomes can only be recorded by Recon workers")
+            assigned = set(metadata.get("target_ids", []))
+            if not assigned:
+                raise ValueError("Recon worker has no assigned target IDs")
+            received: dict[str, tuple[str, str]] = {}
+            for outcome in outcomes:
+                target_id = outcome.get("target_id", "").strip()
+                status = outcome.get("status", "").strip()
+                summary = outcome.get("summary", "").strip()
+                if target_id in received:
+                    raise ValueError(f"Duplicate Recon outcome for target {target_id}")
+                if status not in {"complete", "blocked"} or not summary:
+                    raise ValueError(f"Invalid Recon outcome for target {target_id or '(missing ID)'}")
+                received[target_id] = (status, summary)
+            if set(received) != assigned:
+                missing = sorted(assigned - set(received))
+                unexpected = sorted(set(received) - assigned)
+                raise ValueError(
+                    f"Recon outcomes must cover exactly assigned targets; missing={missing}, "
+                    f"unexpected={unexpected}"
+                )
+            for target_id, (status, summary) in received.items():
+                entry = self.target_ledger[target_id]
+                if entry.get("assigned_to") != agent_id:
+                    raise ValueError(f"Recon worker does not own target {target_id}")
+                entry["status"] = "recon_complete" if status == "complete" else "blocked"
+                entry["recon_summary"] = summary
+        await self._maybe_snapshot()
 
     async def phase_for(self, agent_id: str) -> ScanPhase:
         async with self._lock:
