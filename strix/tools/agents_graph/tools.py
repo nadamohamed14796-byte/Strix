@@ -117,7 +117,8 @@ async def view_agent_graph(ctx: RunContextWrapper) -> str:
     async with coordinator._lock:
         scan_phase = coordinator.scan_phase
         target_ledger_snapshot = {
-            target_id: dict(entry) for target_id, entry in target_ledger_snapshot.items()
+            target_id: dict(entry)
+            for target_id, entry in coordinator.target_ledger.items()
         }
 
     counts = Counter(statuses.values())
