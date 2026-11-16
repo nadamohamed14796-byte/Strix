@@ -53,7 +53,10 @@ def _do_finish(
             return {
                 "success": False,
                 "scan_completed": False,
-                "error": "Cannot verify JavaScript audit coverage because report state is unavailable; scan remains incomplete.",
+                "error": (
+                    "Cannot verify JavaScript audit coverage because report state "
+                    "is unavailable; scan remains incomplete."
+                ),
             }
         from strix.tools.javascript_audit.tool import javascript_audit_status
 
@@ -63,7 +66,11 @@ def _do_finish(
             return {
                 "success": False,
                 "scan_completed": False,
-                "error": "JavaScript audit is incomplete. Finish recursive inventory, then inspect every discovered asset individually and record analyzed/failed/skipped status.",
+                "error": (
+                    "JavaScript audit is incomplete. Finish recursive inventory, then "
+                    "inspect every discovered asset individually and record "
+                    "analyzed/failed/skipped status."
+                ),
                 "javascript_audit": {
                     "inventory_complete": audit["inventory_complete"],
                     "total": audit["total"],
