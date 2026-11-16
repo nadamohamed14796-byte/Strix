@@ -65,11 +65,16 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
             pending[call_id].append(effective)
         elif kind == "function_call_output":
             queue = pending.get(call_id)
-            if queue:
-                effective = queue.popleft()
-                if effective != call_id:
-                    item = {**item, "call_id": effective}  # noqa: PLW2901
-                    changed = True
+            if not queue:
+                # A cancelled/partially persisted turn can leave a tool result
+                # without its assistant call. Chat Completions serializes this
+                # as a role=tool message, which strict providers reject.
+                changed = True
+                continue
+            effective = queue.popleft()
+            if effective != call_id:
+                item = {**item, "call_id": effective}  # noqa: PLW2901
+                changed = True
         rebuilt.append(item)
 
     return rebuilt, changed
