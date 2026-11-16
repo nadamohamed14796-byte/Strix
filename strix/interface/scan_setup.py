@@ -196,11 +196,13 @@ def prepare_resume_target_additions(
         for item in existing
         if isinstance(item, dict)
     }
-    fresh = [
-        item for item in additions
-        if (str(item.get("type", "")), str(item.get("original", "")).strip().lower())
-        not in known
-    ]
+    fresh: list[dict[str, Any]] = []
+    for item in additions:
+        identity = (str(item.get("type", "")), str(item.get("original", "")).strip().lower())
+        if identity in known:
+            continue
+        known.add(identity)
+        fresh.append(item)
     if not fresh:
         return
 
