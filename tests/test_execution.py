@@ -16,6 +16,8 @@ from agents.tool_context import ToolContext
 from openai.types.responses import ResponseOutputMessage, ResponseOutputRefusal
 
 from strix.core import execution
+from strix.report import state as report_state_module
+from strix.tools.javascript_audit import tool as javascript_audit_tool
 from strix.core.agents import AgentCoordinator
 from strix.core.execution import (
     _notify_root_on_budget_reserve,
@@ -166,9 +168,6 @@ async def test_claim_reserve_sets_flag_and_wakes_parked_agents() -> None:
 async def test_finish_scan_bypasses_active_agent_guard_after_reserve(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Any
 ) -> None:
-    from strix.report import state as report_state_module
-    from strix.tools.javascript_audit import tool as javascript_audit_tool
-
     report_state = MagicMock()
     report_state.get_run_dir.return_value = tmp_path
     report_state.vulnerability_reports = []
@@ -1635,7 +1634,7 @@ async def test_spawn_child_agent_includes_assigned_target_ids_in_task(
         factory=lambda **_kwargs: object(),
         agents_db_path=tmp_path / "agents.db",
         sessions_to_close=[],
-        run_config=cast(Any, None),
+        run_config=cast("Any", None),
         max_turns=5,
         interactive=False,
         parent_ctx={"agent_id": "root"},
