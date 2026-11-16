@@ -14,7 +14,7 @@ from strix.core.sessions import session_write_lock
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from agents.items import TResponseInputItem
     from agents.memory import Session
@@ -67,6 +67,72 @@ class AgentCoordinator:
         self._reserve_stopped = False
         self._budget_paused = False
         self._extend_budget: Callable[[], None] | None = None
+        self._target_append_handler: (
+            Callable[[list[dict[str, Any]]], Awaitable[dict[str, Any]]] | None
+        ) = None
+
+    def set_target_append_handler(
+        self,
+        handler: Callable[[list[dict[str, Any]]], Awaitable[dict[str, Any]]],
+    ) -> None:
+        """Register the active-run handler that updates scope and root instructions."""
+        self._target_append_handler = handler
+
+    async def append_targets(self, entries: list[dict[str, Any]]) -> dict[str, Any]:
+        """Append user-authorized targets to the currently running Recon queue."""
+        if self._target_append_handler is None:
+            raise RuntimeError("Live target addition is unavailable for this scan")
+        return await self._target_append_handler(entries)
+
+    async def append_target_entries(
+        self,
+        entries: list[dict[str, Any]],
+        *,
+        persist: Callable[[], None] | None = None,
+    ) -> list[str]:
+        """Atomically append ledger entries while Recon is still open.
+
+        The persistence callback runs under the coordinator lock before the ledger
+        changes, so the root cannot cross the Recon barrier between persisting the
+        new scope and making the new targets visible to the barrier.
+        """
+        normalized: dict[str, dict[str, Any]] = {}
+        for entry in entries:
+            target_id = entry.get("target_id")
+            if not isinstance(target_id, str) or not target_id:
+                raise ValueError("Every target ledger entry must have a stable target_id")
+            if target_id in normalized:
+                raise ValueError(f"Duplicate target_id in appended scope: {target_id}")
+            normalized[target_id] = {
+                **entry,
+                "status": "queued",
+                "assigned_to": None,
+                "attempts": 0,
+                "recon_summary": "",
+            }
+
+        async with self._lock:
+            if not self._target_ledger_initialized:
+                raise RuntimeError("Target ledger is not initialized")
+            if self.scan_phase != "recon":
+                raise ValueError("New targets can only be appended while the scan is in Recon")
+            additions: dict[str, dict[str, Any]] = {}
+            for target_id, entry in normalized.items():
+                current = self.target_ledger.get(target_id)
+                if current is None:
+                    additions[target_id] = entry
+                    continue
+                for key in ("type", "value", "workspace_path"):
+                    if current.get(key, "") != entry.get(key, ""):
+                        raise ValueError(f"Target identity changed for {target_id}; refusing scope drift")
+            if not additions:
+                return []
+            if persist is not None:
+                persist()
+            self.target_ledger.update(additions)
+
+        await self._maybe_snapshot()
+        return sorted(additions)
 
     def set_snapshot_path(self, path: Path) -> None:
         self._snapshot_path = path
