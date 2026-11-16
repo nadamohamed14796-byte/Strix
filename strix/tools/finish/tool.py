@@ -92,7 +92,7 @@ def _do_finish(
         )
         vuln_count = len(report_state.vulnerability_reports)
         coverage_summary = _coverage_summary(agent_graph)
-    except (ImportError, AttributeError) as e:
+    except (ImportError, AttributeError, OSError, RuntimeError) as e:
         logger.exception("finish_scan persistence failed")
         return {"success": False, "error": f"Failed to complete scan: {e!s}"}
     else:
