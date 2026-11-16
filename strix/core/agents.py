@@ -92,7 +92,7 @@ class AgentCoordinator:
                 raise ValueError(f"Cannot advance from scan phase {self.scan_phase!r}")
             if not confirmed_all_targets_reconciled or not reconciliation_summary.strip():
                 raise ValueError(
-                    "Root must explicitly confirm complete target reconciliation and provide a summary"
+                    "Root must confirm target reconciliation and provide a summary"
                 )
             unfinished = [
                 aid for aid, metadata in self.metadata.items()
