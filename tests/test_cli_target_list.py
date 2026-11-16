@@ -69,11 +69,71 @@ def test_parse_arguments_combines_target_and_target_list(
     ]
 
 
-def test_parse_arguments_rejects_resume_with_target_list(
+def test_resume_appends_new_targets_to_the_existing_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _stub_settings(monkeypatch)
+    monkeypatch.setattr(sys, "argv", ["strix", "-t", "https://old.example/"])
+    original_args = cli_main.parse_arguments()
+    original_targets = original_args.targets_info
+
+    _write_run_record(
+        tmp_path / "strix_runs",
+        "old-run",
+        {
+            "run_name": "old-run",
+            "targets_info": original_targets,
+            "local_sources": [],
+            "instruction": "audit the original target",
+            "user_instruction": "audit the original target",
+        },
+    )
+    target_list = tmp_path / "targets.txt"
+    target_list.write_text("https://new.example/\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["strix", "--resume", "old-run", "--target-list", str(target_list)],
+    )
+
+    args = cli_main.parse_arguments()
+
+    assert args.run_name == "old-run"
+    assert [target["original"] for target in args.targets_info] == [
+        "https://old.example/",
+        "https://new.example/",
+    ]
+    assert args.targets_info[0] == original_targets[0]
+    persisted = json.loads((tmp_path / "strix_runs/old-run/run.json").read_text())
+    assert [target["original"] for target in persisted["targets_info"]] == [
+        "https://old.example/",
+        "https://new.example/",
+    ]
+
+
+def test_resume_rejects_target_append_after_testing_begins(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    _stub_settings(monkeypatch)
+    monkeypatch.setattr(sys, "argv", ["strix", "-t", "https://old.example/"])
+    original_args = cli_main.parse_arguments()
+    _write_run_record(
+        tmp_path / "strix_runs",
+        "old-run",
+        {
+            "run_name": "old-run",
+            "targets_info": original_args.targets_info,
+            "local_sources": [],
+            "instruction": "audit the original target",
+        },
+    )
+    (tmp_path / "strix_runs/old-run/.state/agents.json").write_text(
+        json.dumps({"scan_phase": "testing"}), encoding="utf-8"
+    )
     target_list = tmp_path / "targets.txt"
-    target_list.write_text("https://test1.com/\n", encoding="utf-8")
+    target_list.write_text("https://new.example/\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -83,7 +143,9 @@ def test_parse_arguments_rejects_resume_with_target_list(
     with pytest.raises(SystemExit):
         cli_main.parse_arguments()
 
-    assert "Cannot combine --resume with --target/--target-list" in capsys.readouterr().err
+    assert "only be appended while the existing scan is still in Recon" in (
+        capsys.readouterr().err
+    )
 
 
 def _write_run_record(runs_dir: Path, run_name: str, record: dict[str, Any]) -> None:
