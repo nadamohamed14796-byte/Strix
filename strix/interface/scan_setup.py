@@ -176,7 +176,7 @@ def prepare_resume_target_additions(
     if not additions:
         return
 
-    from strix.report.writer import read_run_record, write_run_record
+    from strix.report.writer import read_run_record, write_run_record  # noqa: PLC0415
 
     run_dir = run_dir_for(args.resume)
     snapshot_path = runtime_state_dir(run_dir) / "agents.json"
