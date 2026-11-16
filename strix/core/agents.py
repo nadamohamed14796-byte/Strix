@@ -287,7 +287,7 @@ class AgentCoordinator:
                 runtime.wake.set()
             return next((aid for aid, parent in self.parent_of.items() if parent is None), None)
 
-    async def register(
+    async def register(  # noqa: PLR0912 - validation keeps ownership and phase checks atomic.
         self,
         agent_id: str,
         name: str,
