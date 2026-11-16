@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from agents import RunContextWrapper, function_tool
+from agents import function_tool
 
 logger = logging.getLogger(__name__)
 _LOCK = asyncio.Lock()
@@ -53,7 +53,6 @@ def _save(path: Path, data: dict[str, Any]) -> None:
 
 @function_tool(timeout=30)
 async def record_javascript_asset(
-    ctx: RunContextWrapper,
     asset_url: str,
     status: Literal["discovered", "analyzed", "failed", "skipped"] = "discovered",
     notes: str = "",
@@ -70,19 +69,26 @@ async def record_javascript_asset(
     """
     parsed = urlsplit(asset_url.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return json.dumps({"success": False, "error": "asset_url must be an absolute HTTP(S) URL"})
+        return json.dumps(
+            {"success": False, "error": "asset_url must be an absolute HTTP(S) URL"}
+        )
     if parsed.username or parsed.password:
         return json.dumps({"success": False, "error": "Credentials are not allowed in asset_url"})
     if status not in _VALID_STATUSES:
         return json.dumps({"success": False, "error": "Unsupported status"})
     if status in {"failed", "skipped"} and not reason.strip():
         return json.dumps({"success": False, "error": "failed/skipped status requires a reason"})
-    if content_sha256 and (len(content_sha256) != 64 or any(c not in "0123456789abcdefABCDEF" for c in content_sha256)):
+    if content_sha256 and (
+        len(content_sha256) != 64
+        or any(c not in "0123456789abcdefABCDEF" for c in content_sha256)
+    ):
         return json.dumps({"success": False, "error": "content_sha256 must be a 64-character hex digest"})
 
     path = _ledger_path()
     if path is None:
-        return json.dumps({"success": False, "error": "Scan report state is unavailable; asset was not recorded"})
+        return json.dumps(
+            {"success": False, "error": "Scan report state is unavailable; asset was not recorded"}
+        )
     key = asset_url.strip()
     async with _LOCK:
         try:
@@ -94,7 +100,9 @@ async def record_javascript_asset(
                 "status": status,
                 "notes": notes.strip()[:12000],
                 "reason": reason.strip()[:4000],
-                "content_sha256": content_sha256.lower() or previous.get("content_sha256", ""),
+                "content_sha256": (
+                    content_sha256.lower() or previous.get("content_sha256", "")
+                ),
             }
             assets[key] = entry
             if status == "discovered":
@@ -108,7 +116,7 @@ async def record_javascript_asset(
 
 
 @function_tool(timeout=30)
-async def complete_javascript_inventory(ctx: RunContextWrapper) -> str:
+async def complete_javascript_inventory() -> str:
     """Mark recursive JavaScript discovery complete after the crawl/import queue is exhausted.
 
     Call only after crawler results, HTML script references, static imports,
@@ -150,4 +158,10 @@ def javascript_audit_status(run_dir: Path) -> dict[str, Any]:
         for url, item in assets.items()
         if isinstance(item, dict) and item.get("status") in {"failed", "skipped"}
     ]
-    return {"initialized": True, "inventory_complete": bool(data.get("inventory_complete")), "total": len(assets), "pending": pending, "terminal": terminal}
+    return {
+        "initialized": True,
+        "inventory_complete": bool(data.get("inventory_complete")),
+        "total": len(assets),
+        "pending": pending,
+        "terminal": terminal,
+    }
