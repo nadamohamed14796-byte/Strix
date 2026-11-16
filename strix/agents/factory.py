@@ -27,6 +27,7 @@ from strix.tools.agents_graph.tools import (
 )
 from strix.tools.finish.tool import finish_scan
 from strix.tools.load_skill.tool import load_skill
+from strix.tools.javascript_audit.tool import record_javascript_asset
 from strix.tools.notes.tools import (
     create_note,
     delete_note,
@@ -487,6 +488,7 @@ def _finish_tool_use_behavior(
 _BASE_TOOLS: tuple[Tool, ...] = (
     think,
     load_skill,
+    record_javascript_asset,
     create_todo,
     list_todos,
     update_todo,
