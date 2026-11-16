@@ -149,6 +149,7 @@ def test_blocked_candidate_notes_survive_hydration(monkeypatch, tmp_path) -> Non
     notes_tools.hydrate_notes_from_disk(tmp_path)
 
     restored = notes_tools._list_notes_impl(category="findings", include_content=True)
-    assert len(restored) == 1
-    assert restored[0]["title"] == "[NEEDS_VALIDATION] Candidate"
-    assert "retained for follow-up" in restored[0]["content"]
+    assert restored["success"] is True
+    assert len(restored["notes"]) == 1
+    assert restored["notes"][0]["title"] == "[NEEDS_VALIDATION] Candidate"
+    assert "retained for follow-up" in restored["notes"][0]["content"]
