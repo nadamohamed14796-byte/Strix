@@ -10,6 +10,7 @@ Use this skill after web crawling and whenever source files, script URLs, source
 ## 1. Build the inventory
 
 - Preserve the raw crawler output (Katana JSONL and any headless/XHR output) as evidence.
+- Immediately parse each crawler pass and submit all in-scope JavaScript URLs to `record_javascript_assets` in batches (up to 5000 URLs per call), with a source label identifying the crawler/output. Repeat after each recursive import/chunk-discovery pass; this makes the live ledger reflect crawler discoveries rather than relying on a final manual summary.
 - Extract every unique absolute HTTP(S) URL whose path has a JavaScript extension, including `.js`, `.mjs`, and `.cjs`; also inspect HTML script references and JavaScript module imports found in fetched responses.
 - Include versioned bundles, chunk files, dynamically loaded scripts, and same-origin source maps when their URLs are explicitly referenced by in-scope responses.
 - Resolve relative references against the response URL. Do not invent hostnames or follow references outside the system-verified scope.
