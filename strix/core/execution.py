@@ -300,7 +300,7 @@ async def spawn_child_agent(
     task: str,
     skills: list[str],
     parent_history: list[Any],
-    phase: str = "recon",
+    phase: str | None = None,
     event_sink: StreamEventSink | None = None,
     hooks: RunHooks[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
