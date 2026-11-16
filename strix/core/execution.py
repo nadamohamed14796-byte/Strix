@@ -301,6 +301,7 @@ async def spawn_child_agent(
     skills: list[str],
     parent_history: list[Any],
     phase: ScanPhase | None = None,
+    target_ids: list[str] | None = None,
     event_sink: StreamEventSink | None = None,
     hooks: RunHooks[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
@@ -317,6 +318,7 @@ async def spawn_child_agent(
         task=task,
         skills=skills,
         phase=phase,
+        target_ids=target_ids,
     )
 
     await _start_child_runner(
