@@ -322,7 +322,13 @@ def _update_note_impl(
         except (ValueError, TypeError) as e:
             return {"success": False, "error": f"Failed to update note: {e}"}
         else:
-            _persist()
+            if not _persist():
+                _notes_storage.pop(note_id, None)
+                return {
+                    "success": False,
+                    "note_id": None,
+                    "error": "Note was created in memory but could not be saved to disk; retry after checking state-directory permissions and storage.",
+                }
             return {
                 "success": True,
                 "note_id": note_id,
@@ -342,7 +348,13 @@ def _delete_note_impl(note_id: str) -> dict[str, Any]:
         except (ValueError, TypeError) as e:
             return {"success": False, "error": f"Failed to delete note: {e}"}
         else:
-            _persist()
+            if not _persist():
+                _notes_storage[note_id] = note
+                return {
+                    "success": False,
+                    "note_id": note_id,
+                    "error": "Note could not be deleted durably because saving failed; the in-memory note was restored.",
+                }
             return {
                 "success": True,
                 "note_id": note_id,
