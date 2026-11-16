@@ -45,7 +45,7 @@ High-signal flags:
 - `-silent`, `-j, -jsonl`, `-o <file>` output controls
 
 Agent-safe baseline for automation:
-`mkdir -p crawl && katana -u https://target.tld -d 3 -ct 10m -mdp 2000 -fsu -jc -kf robotstxt -c 10 -p 10 -rl 50 -timeout 10 -retry 1 -ef png,jpg,jpeg,gif,svg,css,woff,woff2,ttf,eot,map -silent -j -o crawl/katana.jsonl`
+`mkdir -p crawl && katana -u https://target.tld -d 3 -ct 10m -mdp 2000 -fsu -jc -kf robotstxt -c 10 -p 10 -rl 50 -timeout 10 -retry 1 -ef png,jpg,jpeg,gif,svg,css,woff,woff2,ttf,eot -silent -j -o crawl/katana.jsonl`
 
 Common patterns:
 - Fast crawl baseline:
@@ -76,7 +76,7 @@ Keeping output small (katana has NO default page cap, so plan for volume):
 
 Usage rules:
 - Keep `-d`, `-c`, `-p`, and `-rl` explicit for reproducible runs.
-- Use `-ef` early to reduce static-file noise before fuzzing.
+- Use `-ef` early to reduce static-file noise before fuzzing, but never exclude `.js`, `.mjs`, `.cjs`, or referenced source maps during the JavaScript inventory pass.
 - Prefer `-proxy` over environment proxy variables when proxying only Katana traffic.
 - Use `-hc` only for one-time diagnostics, not routine crawling loops.
 - Do not use `-h`/`--help` for routine runs unless absolutely necessary.
