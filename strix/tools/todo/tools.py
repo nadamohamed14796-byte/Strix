@@ -322,7 +322,7 @@ async def create_todo(ctx: RunContextWrapper, todos: str) -> str:
                 default=str,
             )
 
-with _todos_io_lock:
+        with _todos_io_lock:
             agent_todos = _get_agent_todos(agent_id)
             seen = {todo["title"].strip().lower() for todo in agent_todos.values()}
             created: list[dict[str, Any]] = []
@@ -392,7 +392,7 @@ async def list_todos(
     """
     agent_id = _agent_id_from(ctx)
     try:
-with _todos_io_lock:
+        with _todos_io_lock:
             agent_todos = _get_agent_todos(agent_id)
             status_filter = status.lower() if isinstance(status, str) else None
             priority_filter = priority.lower() if isinstance(priority, str) else None
@@ -471,7 +471,7 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
     """
     agent_id = _agent_id_from(ctx)
     try:
-with _todos_io_lock:
+        with _todos_io_lock:
             agent_todos = _get_agent_todos(agent_id)
             updates_to_apply = _normalize_bulk_updates(updates)
             if not updates_to_apply:
@@ -516,7 +516,7 @@ with _todos_io_lock:
 
 def _mark(*, agent_id: str, todo_ids: str, new_status: str) -> str:
     try:
-with _todos_io_lock:
+        with _todos_io_lock:
             agent_todos = _get_agent_todos(agent_id)
             ids = _normalize_todo_ids(todo_ids)
             if not ids:
@@ -592,7 +592,7 @@ async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
     """
     agent_id = _agent_id_from(ctx)
     try:
-with _todos_io_lock:
+        with _todos_io_lock:
             agent_todos = _get_agent_todos(agent_id)
             ids = _normalize_todo_ids(todo_ids)
             if not ids:
