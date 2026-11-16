@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from strix.tools.javascript_audit.tool import (
     _merge_discovered_assets,
     _record_asset,
@@ -244,4 +246,21 @@ def test_new_single_asset_reopens_discovery_inventory():
     )
 
     assert data["inventory_complete"] is False
+
+def test_failed_ledger_write_preserves_previous_file_and_cleans_temp(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "javascript_audit.json"
+    path.write_text("previous-state", encoding="utf-8")
+
+    def fail_fsync(_fd):
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr("strix.tools.javascript_audit.tool.os.fsync", fail_fsync)
+
+    with pytest.raises(OSError, match="simulated disk failure"):
+        _save(path, {"version": 1, "assets": {}, "inventory_complete": False})
+
+    assert path.read_text(encoding="utf-8") == "previous-state"
+    assert list(tmp_path.glob(".javascript_audit.json.*.tmp")) == []
 
