@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from agents import function_tool
+from agents import RunContextWrapper, function_tool
 
 logger = logging.getLogger(__name__)
 _LOCK = asyncio.Lock()
@@ -124,13 +124,19 @@ async def record_javascript_asset(
 
 
 @function_tool(timeout=30)
-async def complete_javascript_inventory() -> str:
+async def complete_javascript_inventory(ctx: RunContextWrapper) -> str:
     """Mark recursive JavaScript discovery complete after the crawl/import queue is exhausted.
 
     Call only after crawler results, HTML script references, static imports,
     and discovered dynamic chunks have been reconciled. This does not mark
     any asset analyzed; each ledger entry must separately reach a terminal status.
     """
+    context = ctx.context if isinstance(ctx.context, dict) else {}
+    if context.get("parent_id") is not None:
+        return json.dumps({
+            "success": False,
+            "error": "Only the root agent may close JavaScript inventory",
+        })
     path = _ledger_path()
     if path is None:
         return json.dumps({"success": False, "error": "Scan report state is unavailable"})
