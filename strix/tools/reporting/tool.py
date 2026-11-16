@@ -383,6 +383,8 @@ async def create_vulnerability_report(
 ) -> str:
     """File a vulnerability report — one report per fully-verified finding.
 
+    This tool is unavailable until the root opens the scan-wide Testing phase.
+
     **When to file**: you have a concrete vulnerability with a working
     proof-of-concept and you're 100% sure it's a real issue.
 
@@ -1153,6 +1155,8 @@ async def create_dependency_report(
     contextual_cvss_reasoning: str | None = None,
 ) -> str:
     """File a known-CVE dependency (SCA) finding — one report per CVE x package.
+
+    This tool is unavailable until the root opens the scan-wide Testing phase.
 
     Use this instead of ``create_vulnerability_report`` when the finding
     is a **known-CVE supply-chain issue**: a vulnerable third-party
