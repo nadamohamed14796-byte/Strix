@@ -105,6 +105,12 @@ async def view_agent_graph(ctx: RunContextWrapper) -> str:
     for root in roots:
         render(root, 0)
 
+    async with coordinator._lock:
+        scan_phase = coordinator.scan_phase
+        target_ledger_snapshot = {
+            target_id: dict(entry) for target_id, entry in target_ledger_snapshot.items()
+        }
+
     counts = Counter(statuses.values())
     summary: dict[str, int] = {"total": len(parent_of)}
     for status_name in get_args(Status):
@@ -113,13 +119,13 @@ async def view_agent_graph(ctx: RunContextWrapper) -> str:
         {
             "success": True,
             "graph_structure": "\n".join(lines) or "(no agents)",
-            "scan_phase": coordinator.scan_phase,
+            "scan_phase": scan_phase,
             "target_ledger": {
-                "total": len(coordinator.target_ledger),
+                "total": len(target_ledger_snapshot),
                 "counts": dict(
                     Counter(
                         entry.get("status", "queued")
-                        for entry in coordinator.target_ledger.values()
+                        for entry in target_ledger_snapshot.values()
                     )
                 ),
                 "items": [
