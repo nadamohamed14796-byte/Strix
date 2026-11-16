@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from strix.tools.javascript_audit.tool import _load, _save, javascript_audit_status
+from strix.tools.javascript_audit.tool import (\n    _load,\n    _merge_discovered_assets,\n    _save,\n    javascript_audit_status,\n)
 
 
 def test_missing_ledger_is_not_treated_as_completed(tmp_path):
@@ -180,3 +180,59 @@ def test_finish_scan_accepts_closed_inventory_and_terminal_asset_gaps(tmp_path, 
     assert result["javascript_assets_audited"] == 1
     assert result["javascript_audit_gaps"][0]["status"] == "failed"
     assert persisted["executive_summary"] == "Summary"
+
+
+
+def test_bulk_import_preserves_every_url_and_source_provenance():
+    data = {
+        "version": 1,
+        "inventory_complete": True,
+        "assets": {
+            "https://example.test/app.js": {
+                "url": "https://example.test/app.js",
+                "status": "analyzed",
+                "notes": "Reviewed routes and auth checks",
+                "content_sha256": "a" * 64,
+                "sources": ["html-script"],
+            }
+        },
+    }
+
+    recorded = _merge_discovered_assets(
+        data,
+        [
+            "https://example.test/app.js",
+            "https://example.test/chunk.js",
+            "https://example.test/chunk.js",
+        ],
+        "katana-jsonl",
+    )
+
+    assert recorded == 2
+    assert data["inventory_complete"] is False
+    assert data["assets"]["https://example.test/app.js"]["status"] == "discovered"
+    assert data["assets"]["https://example.test/app.js"]["notes"] == (
+        "Reviewed routes and auth checks"
+    )
+    assert data["assets"]["https://example.test/app.js"]["sources"] == [
+        "html-script",
+        "katana-jsonl",
+    ]
+    assert "https://example.test/chunk.js" in data["assets"]
+
+
+def test_bulk_import_reopens_inventory_after_previous_completion():
+    data = {
+        "version": 1,
+        "inventory_complete": True,
+        "assets": {},
+    }
+
+    _merge_discovered_assets(
+        data,
+        ["https://example.test/new-import.js"],
+        "html-import-recursion",
+    )
+
+    assert data["inventory_complete"] is False
+    assert data["assets"]["https://example.test/new-import.js"]["status"] == "discovered"
