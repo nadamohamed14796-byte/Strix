@@ -163,7 +163,26 @@ async def test_claim_reserve_sets_flag_and_wakes_parked_agents() -> None:
 
 
 @pytest.mark.asyncio
-async def test_finish_scan_bypasses_active_agent_guard_after_reserve() -> None:
+async def test_finish_scan_bypasses_active_agent_guard_after_reserve(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    from strix.report import state as report_state_module
+    from strix.tools.javascript_audit import tool as javascript_audit_tool
+
+    report_state = MagicMock()
+    report_state.get_run_dir.return_value = tmp_path
+    report_state.vulnerability_reports = []
+    monkeypatch.setattr(report_state_module, "get_global_report_state", lambda: report_state)
+    monkeypatch.setattr(
+        javascript_audit_tool,
+        "javascript_audit_status",
+        lambda _run_dir: {
+            "inventory_complete": True,
+            "total": 0,
+            "pending": [],
+            "terminal": [],
+        },
+    )
     coordinator = AgentCoordinator()
     await coordinator.register("root", "strix", parent_id=None)
     await coordinator.register("child", "recon", parent_id="root")
