@@ -37,11 +37,6 @@ jobs:
       - name: Ruff lint
         run: uv run ruff check .
 
-      - name: Preview test formatting
-        run: |
-          uv run ruff format tests/test_execution.py tests/test_tui_backend_controller.py
-          git diff -- tests/test_execution.py tests/test_tui_backend_controller.py
-
       - name: Ruff format check
         run: uv run ruff format --check .
 
