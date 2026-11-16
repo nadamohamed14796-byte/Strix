@@ -48,6 +48,7 @@ Notable source-aware skills:
 - `browser_security` (vulnerabilities): browsing-context, postMessage, XS-Leaks, service-worker, and cross-origin state-machine testing
 - `azure` (cloud): Azure and Microsoft Entra privilege, PIM, workload identity, and cross-plane escalation analysis
 - `infrastructure_lifecycle` (reconnaissance): abandoned or mutable external dependencies such as update endpoints, MX, storage, and control domains
+- `javascript_attack_surface` (reconnaissance): exhaustive per-file JavaScript inventory, recursive chunk discovery, evidence provenance, and audit completion tracking
 - `argument_injection` (vulnerabilities): shell-free CLI option smuggling, secondary argument-file parsing, and platform-specific argv transformation boundaries
 - `electron_desktop_apps` (technologies): Electron renderer-to-native trust boundaries, preload/IPC exposure, and navigation analysis
 
