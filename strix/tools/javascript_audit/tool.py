@@ -131,20 +131,25 @@ def _merge_discovered_assets(
     """Merge validated source URLs while preserving per-URL provenance."""
     assets = data["assets"]
     unique_urls = list(dict.fromkeys(asset_urls))
+    added = 0
     for url in unique_urls:
-        previous = assets.get(url, {})
+        previous = assets.get(url)
+        if previous is None:
+            assets[url] = {
+                "url": url,
+                "status": "discovered",
+                "notes": "",
+                "reason": "",
+                "content_sha256": "",
+                "sources": [source],
+            }
+            added += 1
+            continue
         sources = list(previous.get("sources", []))
         if source not in sources:
             sources.append(source)
-        assets[url] = {
-            "url": url,
-            "status": "discovered",
-            "notes": previous.get("notes", ""),
-            "reason": "",
-            "content_sha256": previous.get("content_sha256", ""),
-            "sources": sources,
-        }
-    if unique_urls:
+        previous["sources"] = sources
+    if added:
         data["inventory_complete"] = False
     data["updated_count"] = len(assets)
     return len(unique_urls)
