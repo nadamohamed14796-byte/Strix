@@ -1,69 +1,90 @@
 ---
 name: javascript_attack_surface
-description: Deep JavaScript asset analysis for API contracts, security-sensitive functions, authorization boundaries, and evidence-backed test hypotheses
+description: Exhaustive file-by-file analysis of every discovered in-scope JavaScript asset with incremental synchronization to recon and downstream validation
 ---
 
-# JavaScript Attack Surface Analysis
+# JavaScript Asset Analysis
 
-## Mission and sequencing
+## Mission
 
-Run as a dedicated child of the web-crawling/reconnaissance agent immediately after the initial crawl and technology fingerprinting. The parent owns crawling and asset collection; this child owns deep JavaScript analysis. Analyze all discovered in-scope first-party assets, then revisit when new chunks/routes are discovered.
+Perform a complete, systematic analysis of the collected JavaScript corpus. This is an asset-coverage task, not a hunt for a predefined endpoint, filename, framework, vulnerability class, or scenario.
 
-Collect and deduplicate JavaScript from HTML script/modulepreload/preload links, dynamic imports, lazy route chunks, workers/service workers, inline scripts and hydration data, authenticated pages, and available source maps/original sources. Include scripts discovered through login, signup, recovery, profile, billing, organization/team, member, admin, integration, upload and file flows. Do not assume a filename such as login.js contains the entire flow; trace imports and API calls.
+**Every discovered in-scope JavaScript asset must be accounted for and reviewed individually.** Do not choose files based on names such as login, auth, admin, api, or on whether an initial scan considers them interesting. Do not stop after finding a few useful endpoints or likely vulnerabilities. Names, folder locations, bundle size, and apparent business purpose must not determine whether a file is analyzed.
 
-## Endpoint and API contract inventory
+The analyst is responsible for analysis and durable evidence. It does not own or pause the crawler, root agent, or unrelated reconnaissance/testing work.
 
-For every endpoint reference, correlate static declarations with observed proxy/network traffic. Record:
-- Canonical URL/path template, origin/base URL, API version, and each distinct HTTP method variant.
-- Every path/query/body/form parameter, including hidden, derived, defaulted and optional values; source of value and type/format when evidenced.
-- Actual client-set headers: content-type, accept, auth scheme, CSRF/XSRF, tenant/org/workspace identifiers, version/custom headers, idempotency and tracing. Record header names and schemes, never raw secrets.
-- Cookie/session assumptions, token source/refresh behavior, credential inclusion mode, role/state prerequisites, request body and response/error shapes where observed.
-- Callsite, function/symbol, source file and line/range, page/route, and provenance.
-- Client-side validation, normalization, encoding, escaping and sanitization conditions, with exact code location. Clearly distinguish UX/client validation from server-side enforcement.
-- Evidence class: STATIC_ONLY, OBSERVED_ONLY, or STATIC_AND_OBSERVED; confidence and unresolved assumptions.
+## Complete asset inventory and file-by-file processing
 
-Do not merge different methods into a generic endpoint. Preserve observed-only methods and mark static declarations unobserved until traffic confirms them. Never invent methods, headers, parameters, or schemas.
+Consume the complete crawl asset manifest and all discovered in-scope first-party JavaScript:
+- External scripts and bundles, including minified files and versioned/chunked bundles.
+- Inline scripts and script blocks extracted from HTML.
+- ES modules, dynamic imports, lazy-loaded route chunks, workers and service workers.
+- JavaScript loaded after page navigation or UI state changes, including authenticated pages where available.
+- Source maps and original sources when accessible and in scope.
+- JavaScript-like assets embedded in HTML, JSON bootstrap/hydration data, or downloaded application resources where they contain executable client logic.
 
-## Deep function and flow analysis
+Create one manifest entry for every discovered asset. Deduplicate exact duplicates by canonical URL and content hash, but preserve all discovery locations and aliases. Do not silently discard a duplicate URL with different content: treat each distinct content hash/version as a separate revision. Record non-JavaScript or unreadable candidates as skipped with a precise reason.
 
-Use AST/parser tooling where available; otherwise perform structured source review and state limitations. Trace imports, call graphs, request wrappers/interceptors, state stores, route guards and source-to-sink/data flows.
+Process the manifest deterministically, one asset at a time, and mark each entry PENDING, IN_PROGRESS, ANALYZED, PARTIAL, FAILED, or SKIPPED with reason. Record the content hash, source URL/path, size, type, discovery page, auth state, source-map relation, analysis timestamp, and artifact references. Resume from unfinished entries after interruption; never restart completed work unnecessarily. If the corpus is too large for one context, process bounded batches and continue until every entry has a terminal status. Batching is a context/runtime technique only: it must not become a relevance filter or cause assets to be omitted.
 
-Prioritize:
-- Login, signup, password reset/recovery, MFA, SSO, session refresh/logout, invitations and redirects.
-- Organization, tenant, workspace, project, team, member, role, permission, owner and account identifiers.
-- Authorization/ownership checks, feature gates, object scoping and state transitions.
-- Input validation, normalization, encoding, sanitization, deserialization and rendering.
-- Upload/download, export/import, GraphQL, WebSocket, payment/billing, integrations, webhooks and admin operations.
-- Hidden parameters, debug flags, alternate API versions, client-only checks and fallback paths.
+When new scripts arrive from continued crawling, append them to the same manifest and process them without redoing unchanged assets. If an asset changes, analyze the new hash as a new revision and link it to the prior revision.
 
-For each important function record file/line, inputs/outputs, callers/callees, relevant state, network calls, security checks, and unknowns. Do not label a function vulnerable just because one client-side check is absent; server-side enforcement may exist and must be validated.
+## Per-file analysis contract
 
-## Evidence-backed Attack Survey scenarios
+For each asset, inspect its complete available content. Use an AST/parser when available and suitable; otherwise perform structured source review and record the limitation. Do not rely on filename heuristics or regex-only extraction. Trace imports, exports, module relationships, call sites, wrappers, interceptors, state stores, route registration, data flow, and source-to-sink paths where feasible.
 
-Create hypotheses, not findings. Each item identifies exact page/flow, endpoint and method, relevant parameters, source/function evidence, expected security boundary, reason for suspicion, prerequisites, confidence/priority, minimal safe validation plan, and proof/refutation criteria.
+For every file, record:
+- What the file does, its module role, imports/exports, callers/callees, routes/pages that load it, and related assets.
+- Every endpoint/API reference, each separate HTTP method when evidenced, path/query/body/form parameters, hidden or derived values, request construction, actual client-set headers, auth/session assumptions, request/response/error handling, and callsite/source locations.
+- Validation, authorization-related client checks, normalization, encoding, escaping, sanitization, parsing, and rendering behavior, including the exact function/condition and data affected.
+- Inputs and outputs, user-controlled sources, sensitive data handling, storage mechanisms, trust boundaries, feature/role/tenant state, and security-relevant side effects.
+- Dynamic/runtime traffic correlation when available, clearly distinguishing STATIC_ONLY, OBSERVED_ONLY, and STATIC_AND_OBSERVED evidence.
+- Functions and code paths that are unclear, unreachable, generated, obfuscated, or only partially understood, with explicit follow-up needs.
 
-Examples:
-- A request carries both object ID and organization/tenant ID, while a client helper appears to check only the user or object ID: add a cross-tenant authorization hypothesis for server-side verification, not an assumed IDOR.
-- A hidden/derived parameter affects a request but appears to miss the client validation applied to visible fields: add a validation-consistency hypothesis.
-- A role/permission decision appears only in client state or a route guard: verify server-side authorization.
-- Login/recovery flows contain alternate endpoints, redirect/state flags or MFA transitions: map authentication logic hypotheses.
-- A value reaches a rendering sink after transformations or without an evident contextual control: link it to the XSS validation workflow; reflection alone is not proof.
+Do not infer an HTTP method, header, parameter, server-side control, or runtime behavior without evidence. Client-side validation is not proof of server enforcement. Do not treat a string, route, or endpoint reference as a confirmed vulnerability.
 
-Use only authorized test accounts and non-sensitive canary objects. Do not perform destructive operations, mass enumeration, credential/session theft, or cross-tenant data extraction. Stop once the relevant boundary is established.
+## Corpus-wide correlation after per-file review
 
-## Canonical artifacts and persistence
+After processing files, correlate findings across the complete corpus:
+- Merge repeated endpoint references while retaining every file, callsite, method variant, and evidence source.
+- Connect client wrappers/interceptors, token/session handling, shared validation helpers, route guards, state stores, and API clients to their consumers.
+- Identify where one file constructs values that another file validates, transforms, stores, or sends.
+- Correlate static endpoint declarations with captured network traffic without erasing static-only or observed-only distinctions.
+- Identify inconsistencies or missing evidence across modules; describe uncertainty rather than filling gaps with assumptions.
 
-Maintain one shared Attack Survey ledger, merging into an existing scan ledger if present. Otherwise create:
-- `/workspace/recon/javascript/manifest.json`
-- `/workspace/recon/javascript/assets.jsonl`
-- `/workspace/recon/javascript/endpoints.jsonl`
-- `/workspace/recon/javascript/functions.md`
-- `/workspace/recon/javascript/attack-survey.md`
+Do not limit correlation to a predefined list of application features. Review all discovered modules and record the security-relevant behavior that is actually present.
 
-Deduplicate assets by canonical URL plus content hash and endpoints by canonical path/method while preserving source/callsite variants. Keep raw bundles/source maps out of the ledger; retain references, hashes and bounded excerpts. Never store raw API keys, tokens, cookies or secrets; use redaction and fingerprints only.
+## Attack Survey
 
-Each Attack Survey item requires stable ID, category, title, page/endpoint/method, source evidence, parameters, security boundary, hypothesis, minimal validation steps, expected proof/refutation, prerequisites, confidence, priority, status (UNTESTED / IN_PROGRESS / CONFIRMED / REFUTED / NEEDS_SOURCE_OR_RUNTIME_EVIDENCE), and artifact references. Persist shared workspace files and create/update one concise scan note pointing to them. Keep negative results and counterevidence.
+Populate the shared Attack Survey from evidence discovered during the complete review. Scenarios are generated from the code and traffic; they are not a fixed checklist and must not constrain what files or behaviors are examined.
+
+Each hypothesis must reference exact assets, functions/callsites, endpoint and method where applicable, parameters, relevant trust boundary, evidence, assumptions, prerequisites, safe validation approach, and proof/refutation criteria. Label it as a hypothesis, not a finding. Preserve low-confidence leads, counterevidence, negative results, and items that need runtime or server-side verification. Do not invent an issue merely to fill the survey.
+
+The Attack Survey is a handoff queue for downstream agents. Other agents may begin work on independently ready hypotheses while analysis continues; they must read existing evidence and avoid duplicating the analyst's file-by-file work. As additional evidence appears, update the existing item rather than creating duplicate entries.
+
+## Shared artifacts
+
+Use one canonical shared workspace location, merging with existing scan artifacts instead of creating parallel ledgers:
+- `/workspace/recon/javascript/manifest.json` — complete asset inventory and per-file status.
+- `/workspace/recon/javascript/assets.jsonl` — per-file analysis records and provenance.
+- `/workspace/recon/javascript/endpoints.jsonl` — canonical endpoint/method records with all callsites and evidence.
+- `/workspace/recon/javascript/functions.md` — function, module, call-graph, and data-flow analysis.
+- `/workspace/recon/javascript/attack-survey.md` — evidence-backed hypotheses and validation state.
+
+Keep large raw bundles and source maps in their original workspace locations; reference paths and hashes instead of duplicating them into reports. Redact API keys, tokens, cookies, and other secrets. Never store raw credentials in the ledger.
+
+Use stable IDs. Writes must be incremental and idempotent: append new records, merge evidence into existing IDs, and preserve history. Never replace a completed record with a less complete one. Store partial progress frequently enough that interruption does not lose the entire corpus analysis.
+
+## Synchronization and concurrency
+
+- The crawler owns discovery and continues its normal work. The JavaScript analyst is a child/subtask that consumes the shared asset manifest; spawning it must not pause or replace the crawler.
+- The analyst works asynchronously. The crawler, root, and unrelated subagents continue independent tasks; do not call a blocking wait merely to make JavaScript analysis finish before those tasks can proceed.
+- The crawler publishes newly discovered assets incrementally. The analyst consumes those additions through shared files or concise batched handoffs and acknowledges them in the same manifest. Avoid noisy per-file inter-agent messages.
+- Downstream agents may consume already analyzed records and ready hypotheses while the remaining corpus is being processed. They must mark which evidence revision they used and refresh it when material updates arrive.
+- The root tracks the analyst as active work and must not declare the overall scan complete while assets remain PENDING, IN_PROGRESS, PARTIAL, or FAILED without an explicit disposition. This final completion check must not block unrelated work during the scan.
+- Use bounded batches and existing agent/runtime limits. Do not spawn one child per file by default. If parallel analysis is necessary, split into deterministic, non-overlapping batches and keep a single parent-owned manifest and deduplication authority.
+- If the analysis child fails or stops, preserve its progress and let the parent resume the unfinished manifest with a replacement child. Do not rerun completed assets or lose the crawler's progress.
 
 ## Handoff
 
-Send the parent counts of JS assets analyzed/skipped, source-map coverage, unique endpoint/method variants split by provenance, important functions/flows, top hypotheses, artifact paths and coverage gaps. The parent and later agents must read the ledger. Spawn focused validation agents from prioritized hypotheses rather than rediscovering endpoints or blindly fuzzing parameters. Update the same records as runtime evidence arrives; preserve provenance and history.
+Report total discovered assets, unique content revisions, analyzed/partial/failed/skipped/pending counts, coverage by source type, endpoints and method variants with provenance, functions/modules reviewed, hypotheses created, and unresolved gaps. Include canonical artifact paths. A completion claim is valid only when every manifest entry has a terminal status and every skipped/failed item has a reason.
