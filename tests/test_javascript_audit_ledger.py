@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from strix.tools.javascript_audit.tool import (
     _merge_discovered_assets,
+    _record_asset,
     _save,
     javascript_audit_status,
 )
@@ -167,3 +168,78 @@ def test_finish_scan_allows_no_js_ledger_and_closed_inventory(tmp_path, monkeypa
     assert result_with_terminal_gap["scan_completed"] is True
     assert result_with_terminal_gap["javascript_assets_audited"] == 1
     assert result_with_terminal_gap["javascript_audit_gaps"][0]["status"] == "failed"
+
+def test_repeated_discovery_does_not_downgrade_analyzed_unchanged_asset():
+    data = {
+        "version": 1,
+        "inventory_complete": True,
+        "assets": {
+            "https://example.test/app.js": {
+                "url": "https://example.test/app.js",
+                "status": "analyzed",
+                "notes": "Reviewed all functions and sinks",
+                "reason": "",
+                "content_sha256": "a" * 64,
+                "sources": ["crawler"],
+            }
+        },
+    }
+
+    entry = _record_asset(
+        data,
+        "https://example.test/app.js",
+        "discovered",
+        "",
+        "",
+        "",
+    )
+
+    assert entry["status"] == "analyzed"
+    assert entry["notes"] == "Reviewed all functions and sinks"
+    assert data["inventory_complete"] is True
+
+
+def test_changed_javascript_content_reopens_asset_for_analysis():
+    data = {
+        "version": 1,
+        "inventory_complete": True,
+        "assets": {
+            "https://example.test/app.js": {
+                "url": "https://example.test/app.js",
+                "status": "analyzed",
+                "notes": "Reviewed previous version",
+                "reason": "",
+                "content_sha256": "a" * 64,
+                "sources": ["crawler"],
+            }
+        },
+    }
+
+    entry = _record_asset(
+        data,
+        "https://example.test/app.js",
+        "discovered",
+        "",
+        "",
+        "b" * 64,
+    )
+
+    assert entry["status"] == "discovered"
+    assert entry["content_sha256"] == "b" * 64
+    assert data["inventory_complete"] is True
+
+
+def test_new_single_asset_reopens_discovery_inventory():
+    data = {"version": 1, "inventory_complete": True, "assets": {}}
+
+    _record_asset(
+        data,
+        "https://example.test/new.js",
+        "discovered",
+        "",
+        "",
+        "",
+    )
+
+    assert data["inventory_complete"] is False
+
