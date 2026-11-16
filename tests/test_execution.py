@@ -1501,7 +1501,13 @@ async def test_target_ledger_survives_resume_and_rejects_scope_drift() -> None:
     )
     await coordinator.record_target_outcomes(
         "recon-a",
-        [{"target_id": "target-a", "status": "complete", "summary": "Host and HTTP surface inventoried"}],
+        [
+            {
+                "target_id": "target-a",
+                "status": "complete",
+                "summary": "Host and HTTP surface inventoried",
+            }
+        ],
     )
     await coordinator.set_status("recon-a", "completed")
 
