@@ -34,36 +34,54 @@ def collect_call_ids(items: list[Any]) -> set[str]:
     return used
 
 
-def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
-    """Rewrite duplicate call ids in a conversation history.
+def _item_field(item: Any, field: str) -> Any:
+    if isinstance(item, dict):
+        return item.get(field)
+    return getattr(item, field, None)
 
-    Outputs are paired with their call by order, so parallel calls that share
-    an id keep answering the right call after the rewrite.
+
+def _replace_call_id(item: Any, call_id: str) -> Any:
+    if isinstance(item, dict):
+        return {**item, "call_id": call_id}
+    model_copy = getattr(item, "model_copy", None)
+    if callable(model_copy):
+        return model_copy(update={"call_id": call_id})
+    return item
+
+
+def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
+    """Repair duplicate and orphan tool items in a conversation history.
+
+    Session items can be dictionaries or typed OpenAI response objects. Both
+    representations must participate in pairing: otherwise a typed assistant
+    call followed by a dictionary tool result is misclassified as an orphan,
+    and Chat Completions rejects the resulting role=tool message.
     """
     used: set[str] = set()
     pending: dict[str, deque[str]] = defaultdict(deque)
     rebuilt: list[Any] = []
     changed = False
 
-    for item in items:
-        if not isinstance(item, dict):
-            rebuilt.append(item)
-            continue
-        call_id = item.get("call_id")
-        if not isinstance(call_id, str):
-            rebuilt.append(item)
+    for original_item in items:
+        kind = _item_field(original_item, "type")
+        call_id = _item_field(original_item, "call_id")
+        if not isinstance(call_id, str) or kind not in {
+            "function_call",
+            "function_call_output",
+        }:
+            rebuilt.append(original_item)
             continue
 
-        kind = item.get("type")
+        item = original_item
         if kind == "function_call":
             effective = call_id
             if call_id in used:
                 effective = new_call_id()
-                item = {**item, "call_id": effective}  # noqa: PLW2901
+                item = _replace_call_id(item, effective)
                 changed = True
             used.add(effective)
             pending[call_id].append(effective)
-        elif kind == "function_call_output":
+        else:
             queue = pending.get(call_id)
             if not queue:
                 # A cancelled/partially persisted turn can leave a tool result
@@ -73,12 +91,11 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
                 continue
             effective = queue.popleft()
             if effective != call_id:
-                item = {**item, "call_id": effective}  # noqa: PLW2901
+                item = _replace_call_id(item, effective)
                 changed = True
         rebuilt.append(item)
 
     return rebuilt, changed
-
 
 def dedupe_input(model_input: str | list[Any]) -> str | list[Any]:
     if isinstance(model_input, str):
