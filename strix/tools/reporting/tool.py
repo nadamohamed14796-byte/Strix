@@ -209,12 +209,12 @@ _SENSITIVE_FIELD_NAME = re.compile(
 )
 _SECRET_ASSIGNMENT = re.compile(
     r"(?i)((?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|"
-    r"password|authorization|secret)\\s*[:=]\\s*['\\"]?)([^\\s,'\";]{8,})"
+    r"password|authorization|secret)\s*[:=]\s*['\"]?)([^\s,'\";]{8,})"
 )
-_BEARER_SECRET = re.compile(r"(?i)(\\bBearer\\s+)([A-Za-z0-9._~+/=-]{8,})")
+_BEARER_SECRET = re.compile(r"(?i)(\bBearer\s+)([A-Za-z0-9._~+/=-]{8,})")
 _KNOWN_TOKEN_SHAPES = re.compile(
-    r"\\b(?:sk_live_|sk_test_|sk-|ghp_|github_pat_|gho_|ghu_|ghs_|ghr_|"
-    r"xox[baprs]-|AKIA)[A-Za-z0-9_-]{8,}\\b"
+    r"\b(?:sk_live_|sk_test_|sk-|ghp_|github_pat_|gho_|ghu_|ghs_|ghr_|"
+    r"xox[baprs]-|AKIA)[A-Za-z0-9_-]{8,}\b"
 )
 
 
