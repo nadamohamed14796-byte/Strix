@@ -75,29 +75,38 @@ def hydrate_todos_from_disk(state_dir: Path) -> None:
         )
 
 
-def _persist() -> None:
+def _persist() -> bool:
+    """Atomically persist todos and report failures to the calling tool."""
     path = _todos_path
     if path is None:
-        return
+        logger.error("todo persistence requested before a state directory was configured")
+        return False
+    tmp_path: Path | None = None
     try:
-        payload = json.dumps(_todos_storage, ensure_ascii=False, default=str)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with (
-            _todos_io_lock,
-            tempfile.NamedTemporaryFile(
+        with _todos_io_lock:
+            payload = json.dumps(_todos_storage, ensure_ascii=False, default=str)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
                 mode="w",
                 encoding="utf-8",
                 dir=str(path.parent),
                 prefix=f".{path.name}.",
                 suffix=".tmp",
                 delete=False,
-            ) as tmp,
-        ):
-            tmp.write(payload)
-            tmp_path = Path(tmp.name)
-        tmp_path.replace(path)
+            ) as tmp:
+                tmp.write(payload)
+                tmp.flush()
+                tmp_path = Path(tmp.name)
+            tmp_path.replace(path)
+        return True
     except Exception:
         logger.exception("todos persist to %s failed", path)
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("could not remove temporary todos file %s", tmp_path)
+        return False
 
 
 def _agent_id_from(ctx: RunContextWrapper) -> str:
@@ -344,7 +353,12 @@ async def create_todo(ctx: RunContextWrapper, todos: str) -> str:
             default=str,
         )
 
-    _persist()
+    if not _persist():
+        return json.dumps(
+            {"success": False, "error": "Todos changed in memory but could not be saved to disk; retry after checking state-directory permissions and storage."},
+            ensure_ascii=False,
+            default=str,
+        )
     return json.dumps(
         {
             "success": True,
@@ -482,10 +496,9 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
     except (ValueError, TypeError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
 
-    if updated:
-        _persist()
+    persistence_ok = _persist() if updated else True
     response: dict[str, Any] = {
-        "success": len(errors) == 0,
+        "success": len(errors) == 0 and persistence_ok,
         "updated": updated,
         "updated_count": len(updated),
         "todos": _sorted_todos(agent_id),
@@ -493,6 +506,8 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
     }
     if errors:
         response["errors"] = errors
+    if not persistence_ok:
+        response["persistence_error"] = "Todo changes are in memory but were not saved to disk; retry after checking state-directory permissions and storage."
     return json.dumps(response, ensure_ascii=False, default=str)
 
 
@@ -519,10 +534,9 @@ def _mark(*, agent_id: str, todo_ids: str, new_status: str) -> str:
     except (ValueError, TypeError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
 
-    if marked:
-        _persist()
+    persistence_ok = _persist() if marked else True
     response: dict[str, Any] = {
-        "success": len(errors) == 0,
+        "success": len(errors) == 0 and persistence_ok,
         "marked": marked,
         "marked_count": len(marked),
         "new_status": new_status,
@@ -531,6 +545,8 @@ def _mark(*, agent_id: str, todo_ids: str, new_status: str) -> str:
     }
     if errors:
         response["errors"] = errors
+    if not persistence_ok:
+        response["persistence_error"] = "Todo changes are in memory but were not saved to disk; retry after checking state-directory permissions and storage."
     return json.dumps(response, ensure_ascii=False, default=str)
 
 
@@ -592,10 +608,9 @@ async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
     except (ValueError, TypeError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
 
-    if deleted:
-        _persist()
+    persistence_ok = _persist() if deleted else True
     response: dict[str, Any] = {
-        "success": len(errors) == 0,
+        "success": len(errors) == 0 and persistence_ok,
         "deleted": deleted,
         "deleted_count": len(deleted),
         "todos": _sorted_todos(agent_id),
@@ -603,4 +618,6 @@ async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
     }
     if errors:
         response["errors"] = errors
+    if not persistence_ok:
+        response["persistence_error"] = "Todo changes are in memory but were not saved to disk; retry after checking state-directory permissions and storage."
     return json.dumps(response, ensure_ascii=False, default=str)
