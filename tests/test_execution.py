@@ -1586,6 +1586,14 @@ async def test_target_ledger_rejects_append_after_testing_begins() -> None:
     ]
     await coordinator.initialize_target_ledger(original)
     await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register(
+        "recon-a", "Recon A", parent_id="root", phase="recon", target_ids=["target-a"]
+    )
+    await coordinator.record_target_outcomes(
+        "recon-a",
+        [{"target_id": "target-a", "status": "complete", "summary": "Already inventoried"}],
+    )
+    await coordinator.set_status("recon-a", "completed")
     await coordinator.advance_scan_phase(
         "root",
         confirmed_all_targets_reconciled=True,
