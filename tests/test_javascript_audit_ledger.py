@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from strix.tools.javascript_audit.tool import (\n    _load,\n    _merge_discovered_assets,\n    _save,\n    javascript_audit_status,\n)
+from strix.tools.javascript_audit.tool import (
+    _load,
+    _merge_discovered_assets,
+    _save,
+    javascript_audit_status,
+)
 
 
 def test_missing_ledger_is_not_treated_as_completed(tmp_path):
