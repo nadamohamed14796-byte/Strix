@@ -285,7 +285,6 @@ def test_new_skill_files_load() -> None:
         assert loaded.get(key), f"{name} failed to load"
 
 
-
 def test_javascript_asset_analysis_skill_loads_and_requires_complete_coverage() -> None:
     loaded = load_skills(["analysis/javascript_attack_surface"])
     body = loaded.get("javascript_attack_surface", "")
@@ -294,6 +293,8 @@ def test_javascript_asset_analysis_skill_loads_and_requires_complete_coverage() 
     assert "Do not choose files based on names" in body
     assert "The analyst works asynchronously" in body
     assert "resume from unfinished entries" in body.lower() or "resume only unfinished entries" in body.lower()
+
+
 
 def test_root_prompt_keeps_javascript_analysis_non_blocking() -> None:
     prompt = render_system_prompt(scan_mode="standard", is_root=True)
