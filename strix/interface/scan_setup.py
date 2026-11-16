@@ -12,9 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import tempfile
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from strix.config import Settings, codex, load_settings
@@ -206,56 +204,23 @@ def prepare_resume_target_additions(
     if not fresh:
         return
 
-    # New source directories must not collide with workspace paths already
-    # persisted for the existing targets; changing an old path would change its
-    # stable target ID and invalidate its Recon history.
-    assign_workspace_subdirs(fresh)
-    used_subdirs = {
-        str((item.get("details") or {}).get("workspace_subdir"))
-        for item in existing
-        if isinstance(item, dict) and (item.get("details") or {}).get("workspace_subdir")
-    }
-    for item in fresh:
-        details = item.get("details") or {}
-        base = details.get("workspace_subdir")
-        if not base:
-            continue
-        candidate = str(base)
-        suffix = 2
-        while candidate in used_subdirs:
-            candidate = f"{base}-{suffix}"
-            suffix += 1
-        details["workspace_subdir"] = candidate
-        used_subdirs.add(candidate)
+    unsupported_types = sorted(
+        {str(item.get("type", "")) for item in fresh} - {"web_application", "ip_address"}
+    )
+    if unsupported_types:
+        raise ValueError(
+            "Appending repository, local-code, and API-spec targets to an existing run "
+            "requires workspace and diff-scope preparation that cannot safely be changed "
+            f"mid-run. Unsupported target types: {unsupported_types}"
+        )
 
-    for item in fresh:
-        if item["type"] == "repository":
-            details = item["details"]
-            details["cloned_repo_path"] = clone_repository(
-                details["target_repo"],
-                args.resume,
-                details.get("workspace_subdir"),
-            )
-
-    combined_targets = [*existing, *fresh]
-    api_staging = str(Path(tempfile.gettempdir()) / "strix_api_specs" / args.resume)
-    retained_sources = [
-        source for source in (args.local_sources or [])
-        if str(source.get("source_path", "")) != api_staging
-    ]
-    added_sources = collect_local_sources(fresh)
-    # Re-stage all API specs together so a new spec with the same filename
-    # cannot overwrite an older target's mounted file.
-    added_sources.extend(stage_api_specs(combined_targets, args.resume))
-    args.targets_info = combined_targets
-    args.local_sources = [*retained_sources, *added_sources]
+    args.targets_info = [*existing, *fresh]
 
     # Update only the two fields that describe authorized targets and their
     # staged sources. Preserve timestamps, instructions, report state and all
     # other metadata from the original run record.
     record = read_run_record(run_dir)
     record["targets_info"] = args.targets_info
-    record["local_sources"] = args.local_sources
     write_run_record(run_dir, record)
 
 
