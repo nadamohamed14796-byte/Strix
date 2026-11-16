@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 
 from agents import RunContextWrapper, function_tool
 
+
 if TYPE_CHECKING:
     from pathlib import Path
 
