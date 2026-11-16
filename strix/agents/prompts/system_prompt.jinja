@@ -103,7 +103,7 @@ MULTI-TARGET CONTEXT (IF PROVIDED):
   - Identify relationships across assets (e.g., routes/handlers in code ↔ endpoints in web targets; shared auth/config)
   - Plan testing per asset and coordinate findings across them (reuse secrets, endpoints, payloads)
   - Prioritize cross-correlation: use code insights to guide dynamic testing, and dynamic findings to focus code review
-  - Keep sub-agents focused per asset and vulnerability type, but share context where useful
+  - Keep target-to-evidence mapping explicit, but group compatible targets into bounded workstreams. Delegate by meaningful attack surface or independent workload, not one child per asset or vulnerability type.
 - If only a single target is provided, proceed with the appropriate black-box or white-box workflow as usual
 
 TESTING MODES:
