@@ -42,6 +42,7 @@ from strix.core.inputs import (
 from strix.core.paths import run_dir_for, runtime_state_dir
 from strix.core.sessions import open_agent_session
 from strix.report.state import get_global_report_state
+from strix.report.writer import write_run_record
 from strix.runtime import session_manager
 from strix.telemetry.logging import set_scan_id, setup_scan_logging
 from strix.tools.output_store import (
@@ -328,6 +329,116 @@ async def run_strix_scan(
                 skills=skills,
             )
 
+        async def append_live_targets(target_infos: list[dict[str, Any]]) -> dict[str, Any]:
+            """Add newly authorized web/IP targets without restarting this scan."""
+            unsupported = [
+                str(target.get("type", "unknown"))
+                for target in target_infos
+                if target.get("type") not in {"web_application", "ip_address"}
+            ]
+            if unsupported:
+                raise ValueError("Live append currently supports web applications and IP addresses only")
+            incoming_scope = build_scope_context({"targets": target_infos})
+            existing_targets = list(scan_config.get("targets", []) or [])
+            offset = len(existing_targets)
+            for authorized_entry in incoming_scope.get("authorized_targets", []):
+                for source in authorized_entry.get("sources", []):
+                    source["target_index"] = int(source.get("target_index", 0)) + offset
+            for ledger_entry in incoming_scope.get("target_ledger", []):
+                for source in ledger_entry.get("sources", []):
+                    source["target_index"] = int(source.get("target_index", 0)) + offset
+            existing_ids = set(coordinator.target_ledger)
+            fresh_ledger = [
+                dict(entry)
+                for entry in incoming_scope.get("target_ledger", [])
+                if entry.get("target_id") not in existing_ids
+            ]
+            if not fresh_ledger:
+                return {"added": False, "target_ids": [], "reason": "already_in_scope"}
+            fresh_ids = {entry["target_id"] for entry in fresh_ledger}
+            fresh_authorized = [
+                dict(entry)
+                for entry in incoming_scope.get("authorized_targets", [])
+                if entry.get("target_id") in fresh_ids
+            ]
+            combined_targets = [*existing_targets, *target_infos]
+            combined_authorized = [
+                *scope_context.get("authorized_targets", []),
+                *fresh_authorized,
+            ]
+            combined_ledger = [
+                *(dict(entry) for entry in coordinator.target_ledger.values()),
+                *fresh_ledger,
+            ]
+            updated_root_context = {
+                **root_context,
+                "authorized_targets": combined_authorized,
+                "target_ledger": combined_ledger,
+            }
+            if root_instructions_override is None:
+                updated_instructions = render_system_prompt(
+                    skills=skills,
+                    scan_mode=scan_mode,
+                    is_whitebox=is_whitebox,
+                    is_root=True,
+                    interactive=interactive,
+                    system_prompt_context=updated_root_context,
+                )
+            else:
+                updated_instructions = _compose_root_instructions_override(
+                    root_instructions_override,
+                    skills=skills,
+                    scan_mode=scan_mode,
+                    is_whitebox=is_whitebox,
+                    interactive=interactive,
+                    system_prompt_context=updated_root_context,
+                )
+            if updated_instructions is None:
+                raise RuntimeError("Could not refresh root instructions for the expanded scope")
+
+            def persist_scope_update() -> None:
+                report_state = get_global_report_state()
+                if report_state is None:
+                    raise RuntimeError("Report state is unavailable for live target addition")
+                updated_record = {**report_state.run_record, "targets_info": combined_targets}
+                write_run_record(run_dir, updated_record)
+                report_state.run_record.update(updated_record)
+                report_state.scan_config = scan_config
+                scan_config["targets"] = combined_targets
+                scope_context["authorized_targets"] = combined_authorized
+                scope_context["target_ledger"] = combined_ledger
+                root_context["authorized_targets"] = combined_authorized
+                root_context["target_ledger"] = combined_ledger
+                root_agent.instructions = updated_instructions
+
+            added_ids = await coordinator.append_target_entries(
+                fresh_ledger, persist=persist_scope_update
+            )
+            if not added_ids:
+                return {"added": False, "target_ids": [], "reason": "already_in_scope"}
+            await coordinator.send(
+                root_id,
+                {
+                    "from": "system",
+                    "type": "scope_update",
+                    "priority": "high",
+                    "content": (
+                        "The user appended new authorized targets to this same run during Recon. "
+                        f"New target IDs: {added_ids}. Their details are now in the updated "
+                        "system-verified scope and target ledger. Recon remains open: inventory "
+                        "these targets before requesting the global Testing phase. Do not restart "
+                        "or repeat work for previously completed targets."
+                    ),
+                },
+            )
+            return {
+                "added": True,
+                "target_ids": added_ids,
+                "targets": [entry.get("original", "") for entry in target_infos],
+                "total": len(combined_targets),
+            }
+
+        coordinator.set_target_append_handler(append_live_targets)
         child_agent_builder = make_child_factory(
             scan_mode=scan_mode,
             is_whitebox=is_whitebox,
