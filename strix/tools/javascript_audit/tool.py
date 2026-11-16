@@ -8,6 +8,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -46,9 +48,77 @@ def _load(path: Path) -> dict[str, Any]:
 
 def _save(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temp.replace(path)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=str(path.parent),
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp:
+            temp.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+            temp.flush()
+            os.fsync(temp.fileno())
+            temp_path = Path(temp.name)
+        temp_path.replace(path)
+    except Exception:
+        if temp_path is not None:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("Could not remove temporary JavaScript audit file %s", temp_path)
+        raise
+
+
+def _record_asset(
+    data: dict[str, Any],
+    key: str,
+    status: str,
+    notes: str,
+    reason: str,
+    content_sha256: str,
+) -> dict[str, Any]:
+    """Update one asset without downgrading an unchanged, already-audited file."""
+    assets = data["assets"]
+    previous = assets.get(key)
+    is_new_asset = not isinstance(previous, dict)
+    if is_new_asset:
+        previous = {}
+
+    previous_sha = str(previous.get("content_sha256", ""))
+    next_sha = content_sha256.lower() or previous_sha
+    effective_status = status
+    if (
+        status == "discovered"
+        and previous.get("status") == "analyzed"
+        and (not content_sha256 or next_sha == previous_sha)
+    ):
+        effective_status = "analyzed"
+
+    entry = {
+        "url": key,
+        "status": effective_status,
+        "notes": (notes.strip() or previous.get("notes", ""))[:12000],
+        "reason": (
+            reason.strip()
+            or (previous.get("reason", "") if effective_status in {"failed", "skipped"} else "")
+        )[:4000],
+        "content_sha256": next_sha,
+        "sources": (
+            previous.get("sources", [])
+            if isinstance(previous.get("sources", []), list)
+            else []
+        ),
+    }
+    assets[key] = entry
+    # Inventory completion concerns discovery, not audit disposition. Only a
+    # genuinely new URL reopens discovery; retrying a known asset does not.
+    if is_new_asset:
+        data["inventory_complete"] = False
+    data["updated_count"] = len(assets)
+    return entry
 
 
 @function_tool(timeout=30)
@@ -95,25 +165,10 @@ async def record_javascript_asset(
     async with _LOCK:
         try:
             data = _load(path)
+            entry = _record_asset(
+                data, key, status, notes, reason, content_sha256
+            )
             assets = data["assets"]
-            previous = assets.get(key, {})
-            entry = {
-                "url": key,
-                "status": status,
-                "notes": (notes.strip() or previous.get("notes", ""))[:12000],
-                "reason": (
-                    reason.strip()
-                    or (previous.get("reason", "") if status in {"failed", "skipped"} else "")
-                )[:4000],
-                "content_sha256": (
-                    content_sha256.lower() or previous.get("content_sha256", "")
-                ),
-                "sources": previous.get("sources", []),
-            }
-            assets[key] = entry
-            if status == "discovered":
-                data["inventory_complete"] = False
-            data["updated_count"] = len(assets)
             _save(path, data)
         except (OSError, RuntimeError, TypeError) as exc:
             logger.exception("Failed to persist JavaScript audit asset")
