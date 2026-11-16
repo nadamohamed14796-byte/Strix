@@ -292,7 +292,10 @@ def test_javascript_asset_analysis_skill_loads_and_requires_complete_coverage() 
     assert "EVERY discovered in-scope JavaScript asset" in body
     assert "Do not choose files based on names" in body
     assert "The analyst works asynchronously" in body
-    assert "resume from unfinished entries" in body.lower() or "resume only unfinished entries" in body.lower()
+    assert (
+        "resume from unfinished entries" in body.lower()
+        or "resume only unfinished entries" in body.lower()
+    )
 
 
 def test_root_prompt_keeps_javascript_analysis_non_blocking() -> None:
