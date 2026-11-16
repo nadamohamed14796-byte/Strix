@@ -359,6 +359,11 @@ class TuiController:
     async def _send_message(self, payload: dict[str, Any]) -> dict[str, Any]:
         agent_id = self._required_string(payload, "agent_id")
         message = self._required_string(payload, "message")
+        if message.startswith("/target"):
+            command, _, target = message.partition(" ")
+            if command != "/target" or not target.strip():
+                raise ValueError("Usage: /target <web URL, domain, or IP address>")
+            return await self._add_live_target({"target": target.strip()})
         if self.coordinator is None:
             raise RuntimeError("Agent coordinator is unavailable")
         if self.scan_loop is None or self.scan_loop.is_closed():
@@ -381,6 +386,44 @@ class TuiController:
         if not delivered:
             raise RuntimeError("Message could not be delivered")
         return {"sent": True}
+
+    async def _add_live_target(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if not self.scan_started or self.scan_state != "running" or self.setup_mode:
+            raise RuntimeError("Live targets can only be appended to an active scan")
+        if self.coordinator is None:
+            raise RuntimeError("Agent coordinator is unavailable")
+        if self.scan_loop is None or self.scan_loop.is_closed():
+            raise RuntimeError("Scan loop is not ready")
+        target = self._required_string(payload, "target")
+        import argparse
+
+        from strix.interface.scan_setup import build_targets_info
+
+        candidate_args = argparse.Namespace(target=[target], target_list=[], targets_info=[])
+        build_targets_info(candidate_args)
+        target_infos = candidate_args.targets_info
+        if len(target_infos) != 1:
+            raise ValueError("Expected exactly one target")
+        if target_infos[0].get("type") not in {"web_application", "ip_address"}:
+            raise ValueError("Live append supports web applications and IP addresses only")
+        if self.scan_loop is asyncio.get_running_loop():
+            result = await self.coordinator.append_targets(target_infos)
+        else:
+            future = asyncio.run_coroutine_threadsafe(
+                self.coordinator.append_targets(target_infos), self.scan_loop
+            )
+            result = await asyncio.wrap_future(future)
+        if not result.get("added"):
+            self._append_message("Target is already in the active scan scope", "warning")
+            return result
+        original = str(target_infos[0].get("original", target))
+        if original not in self.targets:
+            self.targets.append(original)
+        current_infos = list(getattr(self.args, "targets_info", []) or [])
+        current_infos.append(target_infos[0])
+        self.args.targets_info = current_infos
+        self._append_message(f"Added {original} to the active Recon queue", "success")
+        return {**result, "target": original, "total": len(self.targets)}
 
     async def _stop_agent(self, payload: dict[str, Any]) -> dict[str, Any]:
         agent_id = self._required_string(payload, "agent_id")
