@@ -911,6 +911,14 @@ async def _do_create(
             "fix_verification": fix_verification,
             "fix_pr_body": fix_pr_body,
             "http_exchange_ids": normalized_http_exchange_ids,
+            "validation_gate": {
+                "impact_type": impact_type,
+                "impact_proven": impact_proven,
+                "chain_complete": chain_complete,
+                "credential_type": credential_type or "none",
+                "credential_access_proven": credential_access_proven,
+                "validated_at_gate": True,
+            },
         }
 
         dedupe = await check_duplicate(candidate, existing)
@@ -2062,6 +2070,14 @@ async def _do_create_dependency(  # noqa: PLR0912, PLR0915
             cwe=cwe,
             code_locations=parsed_locations,
             fix_verification=fix_verification,
+            validation_gate={
+                "impact_type": impact_type,
+                "impact_proven": impact_proven,
+                "chain_complete": chain_complete,
+                "credential_type": credential_type or "none",
+                "credential_access_proven": credential_access_proven,
+                "validated_at_gate": True,
+            },
             finding_class="dependency_cve",
             dependency_metadata=dependency_metadata,
             agent_id=agent_id if isinstance(agent_id, str) else None,
