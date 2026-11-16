@@ -111,3 +111,72 @@ def test_ledger_round_trips_as_json(tmp_path):
     _save(path, expected)
 
     assert _load(path) == expected
+
+
+
+def test_finish_scan_refuses_to_finish_before_inventory_is_closed(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import strix.report.state as report_state
+    from strix.tools.finish.tool import _do_finish
+
+    state = SimpleNamespace(
+        get_run_dir=lambda: tmp_path,
+        vulnerability_reports=[],
+        update_scan_final_fields=lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(report_state, "get_global_report_state", lambda: state)
+
+    result = _do_finish(
+        parent_id=None,
+        executive_summary="Summary",
+        methodology="Methodology",
+        technical_analysis="Analysis",
+        recommendations="Recommendations",
+    )
+
+    assert result["success"] is False
+    assert result["scan_completed"] is False
+    assert result["javascript_audit"]["inventory_complete"] is False
+
+
+def test_finish_scan_accepts_closed_inventory_and_terminal_asset_gaps(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import strix.report.state as report_state
+    from strix.tools.finish.tool import _do_finish
+
+    _save(
+        tmp_path / "javascript_audit.json",
+        {
+            "version": 1,
+            "inventory_complete": True,
+            "assets": {
+                "https://example.test/unavailable.js": {
+                    "url": "https://example.test/unavailable.js",
+                    "status": "failed",
+                    "reason": "Fetch failed after retries",
+                }
+            },
+        },
+    )
+    persisted = {}
+    state = SimpleNamespace(
+        get_run_dir=lambda: tmp_path,
+        vulnerability_reports=[],
+        update_scan_final_fields=lambda **kwargs: persisted.update(kwargs),
+    )
+    monkeypatch.setattr(report_state, "get_global_report_state", lambda: state)
+
+    result = _do_finish(
+        parent_id=None,
+        executive_summary="Summary",
+        methodology="Methodology",
+        technical_analysis="Analysis",
+        recommendations="Recommendations",
+    )
+
+    assert result["success"] is True
+    assert result["javascript_assets_audited"] == 1
+    assert result["javascript_audit_gaps"][0]["status"] == "failed"
+    assert persisted["executive_summary"] == "Summary"
