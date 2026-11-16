@@ -563,7 +563,7 @@ async def create_agent(
     if (
         coordinator.target_ledger
         and caller_phase == "recon"
-        and coordinator.parent_of.get(parent_id) is not None
+        and (parent_id not in coordinator.parent_of or coordinator.parent_of[parent_id] is not None)
     ):
         return json.dumps(
             {
