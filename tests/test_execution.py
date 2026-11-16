@@ -1615,3 +1615,58 @@ async def test_failed_child_start_marks_target_assignment_retryable(
         target_ids=["target-a"],
     )
     assert coordinator.target_ledger["target-a"]["assigned_to"] == "recon-retry"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_requires_target_ids_and_root_owned_recon_batches() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.initialize_target_ledger(
+        [{"target_id": "target-a", "type": "web_application", "value": "https://a.example"}]
+    )
+    await coordinator.register("root", "Root", parent_id=None)
+    spawned: list[dict[str, Any]] = []
+
+    async def _spawn(**kwargs: Any) -> dict[str, Any]:
+        spawned.append(kwargs)
+        return {"success": True, "agent_id": "fake-child"}
+
+    async def _call(agent_id: str, parent_id: str | None, args: dict[str, Any]) -> dict[str, Any]:
+        ctx = ToolContext(
+            context={
+                "coordinator": coordinator,
+                "agent_id": agent_id,
+                "parent_id": parent_id,
+                "spawn_child_agent": _spawn,
+            },
+            tool_name="create_agent",
+            tool_call_id="call-create-ledger",
+            tool_arguments="{}",
+        )
+        raw = await create_agent.on_invoke_tool(ctx, json.dumps(args))
+        return json.loads(raw)
+
+    base_args = {"name": "Recon", "task": "Inventory target", "phase": "recon"}
+    missing_ids = await _call("root", None, base_args)
+    assert missing_ids["success"] is False
+    assert "target_ids are required" in missing_ids["error"]
+    assert spawned == []
+
+    accepted = await _call(
+        "root", None, {**base_args, "target_ids": ["target-a"]}
+    )
+    assert accepted["success"] is True
+    assert spawned[0]["target_ids"] == ["target-a"]
+
+    await coordinator.register(
+        "recon-a",
+        "Recon A",
+        parent_id="root",
+        phase="recon",
+        target_ids=["target-a"],
+    )
+    delegated = await _call(
+        "recon-a", "root", {**base_args, "target_ids": ["target-a"]}
+    )
+    assert delegated["success"] is False
+    assert "Recon workers cannot delegate" in delegated["error"]
+    assert len(spawned) == 1
