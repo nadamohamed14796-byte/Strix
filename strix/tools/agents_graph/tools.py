@@ -145,7 +145,7 @@ async def view_agent_graph(ctx: RunContextWrapper) -> str:
                         "assigned_to": entry.get("assigned_to"),
                         "attempts": entry.get("attempts", 0),
                     }
-                    for target_id, entry in coordinator.target_ledger.items()
+                    for target_id, entry in target_ledger_snapshot.items()
                 ],
             },
             "summary": summary,
