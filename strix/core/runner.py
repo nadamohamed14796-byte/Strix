@@ -422,7 +422,7 @@ async def run_strix_scan(
             await coordinator.send(
                 root_id,
                 {
-                    "from": "system",
+                    "from": "user",
                     "type": "scope_update",
                     "priority": "high",
                     "content": (
