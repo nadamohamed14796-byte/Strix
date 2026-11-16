@@ -118,7 +118,6 @@ def test_ledger_round_trips_as_json(tmp_path):
     assert _load(path) == expected
 
 
-
 def test_finish_scan_refuses_to_finish_before_inventory_is_closed(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
@@ -185,7 +184,6 @@ def test_finish_scan_accepts_closed_inventory_and_terminal_asset_gaps(tmp_path, 
     assert result["javascript_assets_audited"] == 1
     assert result["javascript_audit_gaps"][0]["status"] == "failed"
     assert persisted["executive_summary"] == "Summary"
-
 
 
 def test_bulk_import_preserves_every_url_and_source_provenance():
