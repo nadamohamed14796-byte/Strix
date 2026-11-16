@@ -9,7 +9,11 @@ from pathlib import Path
 from strix.config import apply_config_override
 from strix.config.settings import DEFAULT_MAX_TURNS
 from strix.core.paths import run_dir_for, runtime_state_dir
-from strix.interface.scan_setup import attach_workspace_mount, build_targets_info
+from strix.interface.scan_setup import (
+    attach_workspace_mount,
+    build_targets_info,
+    prepare_resume_target_additions,
+)
 from strix.interface.update_check import self_update
 from strix.interface.utils import (
     check_mountable_dir,
@@ -297,12 +301,6 @@ Examples:
     args.user_instruction = args.instruction or None
 
     if args.resume:
-        if args.target or args.target_list:
-            parser.error(
-                "Cannot combine --resume with --target/--target-list. "
-                "--resume picks up where the prior run left off, including the "
-                "original target list."
-            )
         _load_resume_state(args, parser)
         agents_path = runtime_state_dir(run_dir_for(args.resume)) / "agents.json"
         if not agents_path.exists():
@@ -312,6 +310,17 @@ Examples:
                 f"there's nothing to resume from. Pick a fresh --run-name "
                 f"or remove --resume to start over with the same targets."
             )
+        if args.target or args.target_list:
+            requested = argparse.Namespace(
+                target=args.target,
+                target_list=args.target_list,
+                targets_info=[],
+            )
+            try:
+                build_targets_info(requested)
+                prepare_resume_target_additions(args, requested.targets_info)
+            except ValueError as error:
+                parser.error(f"--resume {args.resume}: {error}")
     else:
         if not args.target and not args.target_list:
             if args.non_interactive:
@@ -349,6 +358,7 @@ def _load_resume_state(args: argparse.Namespace, parser: argparse.ArgumentParser
     except RuntimeError as exc:
         parser.error(f"--resume {args.resume}: run.json unreadable: {exc}")
 
+    args.run_name = args.resume
     args.targets_info = state.get("targets_info") or []
     # A target-less run has no targets_info at all. It is driven by its
     # instruction, over a mounted working directory or over nothing when the
