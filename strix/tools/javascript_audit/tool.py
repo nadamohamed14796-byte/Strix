@@ -265,6 +265,26 @@ async def complete_javascript_inventory(ctx: RunContextWrapper) -> str:
     })
 
 
+@function_tool(timeout=30)
+async def get_javascript_audit_status() -> str:
+    """Read the current per-scan JavaScript inventory and audit coverage summary."""
+    path = _ledger_path()
+    if path is None:
+        return json.dumps({
+            "success": False,
+            "error": "Scan report state is unavailable",
+        })
+    try:
+        status = javascript_audit_status(path.parent)
+    except (OSError, RuntimeError, TypeError) as exc:
+        logger.exception("Unable to read JavaScript audit status")
+        return json.dumps({
+            "success": False,
+            "error": f"JavaScript audit ledger could not be read: {exc}",
+        })
+    return json.dumps({"success": True, **status}, ensure_ascii=False)
+
+
 def javascript_audit_status(run_dir: Path) -> dict[str, Any]:
     """Return audit coverage for finish_scan; absent ledger means not initialized."""
     path = run_dir / "javascript_audit.json"
