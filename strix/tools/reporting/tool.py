@@ -231,6 +231,9 @@ def _xss_validation_gate(
         "sink_location",
         "rendered_payload_evidence",
         "browser_execution_evidence",
+        "verified_working_payload",
+        "payload_delivery_context",
+        "payload_execution_result",
     )
     missing = [name for name in required_text if not str(xss_validation.get(name) or "").strip()]
     required_flags = (
