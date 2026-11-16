@@ -97,10 +97,14 @@ def _record_asset(
     ):
         effective_status = "analyzed"
 
+    content_changed = bool(content_sha256 and next_sha != previous_sha)
     entry = {
         "url": key,
         "status": effective_status,
-        "notes": (notes.strip() or previous.get("notes", ""))[:12000],
+        "notes": (
+            notes.strip()
+            or ("" if content_changed else previous.get("notes", ""))
+        )[:12000],
         "reason": (
             reason.strip()
             or (previous.get("reason", "") if effective_status in {"failed", "skipped"} else "")
