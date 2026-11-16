@@ -232,3 +232,19 @@ Keep a compact set tuned per context:
 ## Summary
 
 Context, transformation order, and sink decide whether input becomes text, markup, or executable code. Prove HTML injection separately from XSS, and validate every render path. Encode for the exact context and verify at runtime with CSP/Trusted Types. Small payloads with strong evidence beat payload catalogs.
+
+
+## Adaptive Encoding and Filter-Differential Workflow
+
+When a supplied XSS test value is transformed or rejected, use a measured, hypothesis-driven process instead of blind payload mutation.
+
+1. **Load relevant skills first.** Use Strix `load_skill` for `xss`, `semantic_confusion`, and `browser_security`; add only the framework/technology skills supported by evidence from the target stack. The loader accepts at most five skills per call.
+2. **Map the exact transformation chain.** Inspect source and runtime evidence for URL decode depth, HTML entities, hex/Unicode conversion, case/whitespace normalization, framework parsing, sanitization, output encoding, and browser parsing. Record the order and component responsible for each stage. Validation performed before a later decode is especially important, but do not assume it exists without evidence.
+3. **Generate variants from the observed chain.** Preserve the original input and derive a small set that changes one axis at a time: representation, encoding layer, case/whitespace, or context-appropriate syntax. Combine transformations only when the observed pipeline supports that order. Do not brute-force a generic payload list.
+4. **Reason about equivalent semantics.** If a tag or token is blocked, identify the actual sink and browser context first. Only test a different representation or semantically equivalent harmless execution proof if that context can interpret it. A tagless form is not automatically equivalent, and a blocked string is not proof that every equivalent browser behavior is blocked.
+5. **Track every attempt.** Keep a deduplicated ledger of hypothesis, single change, exact transmitted value, response-side transformation, final DOM, browser execution result, and conclusion. Compare the original, response, and rendered DOM.
+6. **Use bounded, safe validation.** Test only authorized in-scope routes with rate/request limits. Use a unique benign DOM/console marker; never use cookie theft, token capture, external data exfiltration, persistence, phishing, or destructive actions as proof. Stop when the control is effective or resource/scope limits are reached.
+7. **Require browser proof.** A response reflection, HTTP status, WAF bypass page, or string match is not execution. Confirm the harmless marker runs in the exact affected route and state. Preserve blocked variants as counterevidence and report only the variants actually tested.
+8. **Report accurately.** Include the transformation chain, source and sink, context-specific encoding/sanitization analysis, successful representation (if any), failed variants, browser evidence, affected routes, and remaining gaps. Never claim exhaustive coverage.
+
+The goal is to discover whether the application's real parser/normalization pipeline creates an executable path—not to maximize payload count or bypass controls without proving a security consequence.
