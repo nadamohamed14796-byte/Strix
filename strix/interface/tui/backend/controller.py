@@ -394,7 +394,7 @@ class TuiController:
         if self.scan_loop is None or self.scan_loop.is_closed():
             raise RuntimeError("Scan loop is not ready")
         target = self._required_string(payload, "target")
-        from strix.interface.scan_setup import build_targets_info  # noqa: PLC0415
+        from strix.interface.scan_setup import build_targets_info
 
         candidate_args = argparse.Namespace(target=[target], target_list=[], targets_info=[])
         build_targets_info(candidate_args)
