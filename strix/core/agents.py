@@ -278,6 +278,7 @@ class AgentCoordinator:
         task: str | None = None,
         skills: list[str] | None = None,
         phase: ScanPhase | None = None,
+        target_ids: list[str] | None = None,
     ) -> None:
         async with self._lock:
             parent_phase = (
@@ -290,6 +291,23 @@ class AgentCoordinator:
                     f"Cannot register {assigned_phase!r} agent while scan/parent phase is "
                     f"{self.scan_phase!r}/{parent_phase!r}"
                 )
+            normalized_target_ids = list(dict.fromkeys(target_ids or []))
+            if len(normalized_target_ids) != len(target_ids or []):
+                raise ValueError("A child task cannot contain duplicate target IDs")
+            if parent_id is not None and self.target_ledger:
+                if not normalized_target_ids:
+                    raise ValueError("Child tasks must declare target_ids when the scan has a target ledger")
+                unknown = sorted(set(normalized_target_ids) - set(self.target_ledger))
+                if unknown:
+                    raise ValueError(f"Child task references unknown target IDs: {unknown}")
+                if assigned_phase == "recon":
+                    for target_id in normalized_target_ids:
+                        entry = self.target_ledger[target_id]
+                        if entry.get("status") in {"recon_complete", "blocked"}:
+                            raise ValueError(f"Target {target_id} already has a terminal Recon outcome")
+                        owner = entry.get("assigned_to")
+                        if owner and self.statuses.get(owner) in {"running", "waiting", "budget_paused"}:
+                            raise ValueError(f"Target {target_id} is already assigned to active worker {owner}")
             self.statuses[agent_id] = "running"
             self.parent_of[agent_id] = parent_id
             self.names[agent_id] = name
@@ -298,7 +316,14 @@ class AgentCoordinator:
                 "task": task or "",
                 "skills": list(skills or []),
                 "phase": assigned_phase,
+                "target_ids": normalized_target_ids,
             }
+            if parent_id is not None and self.target_ledger and assigned_phase == "recon":
+                for target_id in normalized_target_ids:
+                    entry = self.target_ledger[target_id]
+                    entry["status"] = "recon_in_progress"
+                    entry["assigned_to"] = agent_id
+                    entry["attempts"] = int(entry.get("attempts", 0)) + 1
             self.runtimes.setdefault(agent_id, AgentRuntime())
         logger.info("agent.register %s (%s) parent=%s", agent_id, name, parent_id or "-")
         await self._maybe_snapshot()
