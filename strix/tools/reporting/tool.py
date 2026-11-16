@@ -204,7 +204,7 @@ def _finding_validation_gate(
 
 
 _XSS_INDICATORS = re.compile(
-    r"\\b(?:xss|cross[ -]?site[ -]scripting)\\b|CWE-79",
+    r"\b(?:xss|cross[ -]?site[ -]scripting)\b|CWE-79",
     re.IGNORECASE,
 )
 
