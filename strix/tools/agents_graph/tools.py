@@ -539,7 +539,10 @@ async def create_agent(
     assigned_target_ids = list(target_ids or [])
     if coordinator.target_ledger and not assigned_target_ids:
         return json.dumps(
-            {"success": False, "error": "target_ids are required for every child task in a scoped scan"},
+            {
+                "success": False,
+                "error": "target_ids are required for every child task in a scoped scan",
+            },
             ensure_ascii=False,
             default=str,
         )
@@ -549,7 +552,10 @@ async def create_agent(
         and coordinator.parent_of.get(parent_id) is not None
     ):
         return json.dumps(
-            {"success": False, "error": "Recon batches are root-owned; Recon workers cannot delegate"},
+            {
+                "success": False,
+                "error": "Recon batches are root-owned; Recon workers cannot delegate",
+            },
             ensure_ascii=False,
             default=str,
         )
