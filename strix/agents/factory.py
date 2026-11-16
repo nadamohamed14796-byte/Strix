@@ -30,6 +30,12 @@ from strix.tools.agents_graph.tools import (
 )
 from strix.tools.coverage.tools import list_coverage, record_coverage, update_coverage
 from strix.tools.finish.tool import finish_scan
+from strix.tools.javascript_audit.tool import (
+    complete_javascript_inventory,
+    get_javascript_audit_status,
+    record_javascript_asset,
+    record_javascript_assets,
+)
 from strix.tools.load_skill.tool import load_skill
 from strix.tools.mcp import (
     call_mcp,
@@ -633,6 +639,10 @@ def _without_coverage_step(tool: FunctionTool) -> FunctionTool:
 _BASE_TOOLS: tuple[Tool, ...] = (
     think,
     load_skill,
+    record_javascript_asset,
+    record_javascript_assets,
+    get_javascript_audit_status,
+    complete_javascript_inventory,
     create_todo,
     list_todos,
     update_todo,
