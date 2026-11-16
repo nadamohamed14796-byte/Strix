@@ -12,10 +12,11 @@ valid for any provider.
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from openai.types.responses import ResponseFunctionToolCall
+from pydantic import BaseModel
 
 
 def new_call_id() -> str:
@@ -26,7 +27,8 @@ def collect_call_ids(items: list[Any]) -> set[str]:
     used: set[str] = set()
     for item in items:
         if isinstance(item, dict):
-            call_id = item.get("call_id")
+            item_dict = cast("dict[str, Any]", item)
+            call_id = item_dict.get("call_id")
             if isinstance(call_id, str):
                 used.add(call_id)
         elif isinstance(item, ResponseFunctionToolCall):
@@ -35,15 +37,12 @@ def collect_call_ids(items: list[Any]) -> set[str]:
 
 
 def _normalize_tool_item(item: Any) -> Any:
-    if isinstance(item, dict):
+    if isinstance(item, dict) or not isinstance(item, BaseModel):
         return item
-    if getattr(item, "type", None) not in {"function_call", "function_call_output"}:
-        return item
-    model_dump = getattr(item, "model_dump", None)
-    if not callable(model_dump):
-        return item
-    dumped = model_dump(mode="json", exclude_none=True)
-    return dumped if isinstance(dumped, dict) else item
+    dumped = item.model_dump(mode="json", exclude_none=True)
+    if dumped.get("type") in {"function_call", "function_call_output"}:
+        return dumped
+    return item
 
 
 def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
@@ -62,20 +61,24 @@ def dedupe_history_call_ids(items: list[Any]) -> tuple[list[Any], bool]:
         item = _normalize_tool_item(original_item)
         if item is not original_item:
             changed = True
-        kind = item.get("type") if isinstance(item, dict) else None
-        call_id = item.get("call_id") if isinstance(item, dict) else None
+        if not isinstance(item, dict):
+            rebuilt.append(item)
+            continue
+        item_dict = cast("dict[str, Any]", item)
+        kind = item_dict.get("type")
+        call_id = item_dict.get("call_id")
         if not isinstance(call_id, str) or kind not in {
             "function_call",
             "function_call_output",
         }:
-            rebuilt.append(original_item)
+            rebuilt.append(item)
             continue
 
         if kind == "function_call":
             effective = call_id
             if call_id in used:
                 effective = new_call_id()
-                item = {**item, "call_id": effective}
+                item = {**item_dict, "call_id": effective}
                 changed = True
             used.add(effective)
             pending[call_id].append(effective)
@@ -112,7 +115,9 @@ class TurnCallIdRewriter:
     """
 
     def __init__(self, model_input: str | list[Any]) -> None:
-        self._used = set() if isinstance(model_input, str) else collect_call_ids(model_input)
+        self._used: set[str] = (
+            set() if isinstance(model_input, str) else collect_call_ids(model_input)
+        )
         self._remap: dict[str, str] = {}
         self._settled: set[str] = set()
 
