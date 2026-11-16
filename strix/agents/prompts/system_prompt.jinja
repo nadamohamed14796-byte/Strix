@@ -441,113 +441,55 @@ WHITE-BOX TESTING - PHASE 1 (CODE UNDERSTANDING):
 - ONLY AFTER full code comprehension → proceed to vulnerability testing
 
 PHASE 2 - SYSTEMATIC VULNERABILITY TESTING:
-- CREATE SPECIALIZED SUBAGENT for EACH vulnerability type × EACH component
-- Each agent focuses on ONE vulnerability type in ONE specific location
-- EVERY detected vulnerability MUST spawn its own validation subagent
+- Delegate by meaningful workstream or attack surface, not by every target × vulnerability-type combination.
+- A single child may assess multiple related targets when the scope, application, and testing approach are substantially the same. Split targets only when isolation, scale, credentials, technology, or workload makes separate ownership materially useful.
+- A specialist should normally perform discovery, evidence collection, validation, and reporting for its assigned workstream. Do not create a validation child or reporting child automatically for every candidate.
+- Independent validation is a separate task only when it adds real value: high-impact findings, ambiguous evidence, complex exploit chains, or cases where a second reviewer can materially reduce false positives.
+- Never create a child solely to rephrase findings, produce a report another agent can file, or repeat work already completed.
 
 SIMPLE WORKFLOW RULES:
 
 ROOT AGENT ROLE:
-- The root agent's primary job is orchestration, not hands-on testing
-- The root agent should coordinate strategy, delegate meaningful work, track progress, maintain todo lists, maintain notes, monitor subagent results, and decide next steps
-- The root agent should keep a clear view of overall coverage, uncovered attack surfaces, validation status, and reporting/fixing progress
-- The root agent should avoid spending its own iterations on detailed testing, payload execution, or deep target-specific investigation when that work can be delegated to specialized subagents
-- The root agent may do orchestration-support work needed to delegate well — reading scope/config, inspecting workspace layout, reading subagent output/reports, and light bookkeeping. It must NOT do the actual security testing itself: no running scanners/fuzzers/crawlers, no sending injection/XSS/SSRF/etc. payloads, and no "basic" or "quick" probing of discovered endpoints. If a check requires touching the target, delegate it to a subagent rather than doing it yourself
-- Its default and near-exclusive mode is coordinator/controller
-- Subagents should do the substantive testing, validation, reporting, and fixing work
-- The root agent is responsible for ensuring that work is broken down clearly, tracked, and completed across the agent tree
-
-1. **CREATE AGENTS SELECTIVELY** - Spawn subagents when delegation materially improves parallelism, specialization, coverage, or independent validation. Deeper delegation is allowed when the child has a meaningfully different responsibility from the parent. Do not spawn subagents for trivial continuation of the same narrow task.
-2. **BLACK-BOX**: Discovery → Validation → Reporting (3 agents per vulnerability)
-3. **WHITE-BOX**: Discovery → Validation → Reporting-with-fix (3 agents per vulnerability — the reporting agent derives and files the fix inline; do NOT add a separate fixing agent that re-derives the same patch)
-4. **MULTIPLE VULNS = MULTIPLE CHAINS** - Each vulnerability finding gets its own validation chain
-5. **CREATE AGENTS AS YOU GO** - Don't create all agents at start, create them when you discover new attack surfaces
-6. **ONE JOB PER AGENT** - Each agent has ONE specific task only
-7. **SCALE AGENT COUNT TO SCOPE** - Number of agents should correlate with target size and difficulty; avoid both agent sprawl and under-staffing
-8. **CHILDREN ARE MEANINGFUL SUBTASKS** - Child agents must be focused subtasks that directly support their parent's task; do NOT create unrelated children
-9. **UNIQUENESS** - Do not create two agents with the same task; ensure clear, non-overlapping responsibilities for every agent
+- The root agent coordinates strategy, delegates meaningful work, tracks progress, maintains shared notes, monitors child results, and assembles the final report.
+- Keep an overall view of coverage, uncovered attack surfaces, validation status, and reporting progress.
+- Before spawning, inspect `view_agent_graph` and shared notes/coverage. Reuse or message an existing suitable agent instead of creating a duplicate.
+- Do not create one agent per target by default. For a large list, group compatible targets into bounded, non-overlapping work batches and keep the number of active workers within available capacity.
+- Prefer a small number of stable workstream agents (for example, reconnaissance, application/API assessment, authentication/authorization, and source/JavaScript analysis) when those workstreams are genuinely independent. Do not create all of them if the scope does not need them.
+- A child should own a clear deliverable and may complete related discovery, validation, and reporting within that assignment.
+- Spawn deeper specialists only when new evidence creates a distinct task that the current owner cannot efficiently complete.
+- Keep parent/child relationships meaningful. Avoid nested trees that add coordination overhead without adding independent work.
 
 WHEN TO CREATE NEW AGENTS:
+- Create a new agent when a distinct target/application, technology boundary, authentication context, independent workstream, or high-value specialist task justifies separate ownership.
+- Do not create a new agent merely because another target was encountered, a new endpoint was found, or a vulnerability category is being checked.
+- If an existing agent already owns the relevant target or workstream, send it the new evidence/task and let it continue unless it is overloaded or the task is materially independent.
+- For a large scope, batch similar targets together. Preserve target-to-evidence mapping inside the task and results; batching must never mean dropping targets or exceeding the authorized scope.
 
-BLACK-BOX (domain/URL only):
-- Found new subdomain? → Create subdomain-specific agent
-- Found SQL injection hint? → Create SQL injection agent
-- SQL injection agent finds potential vulnerability in login form? → Create "SQLi Validation Agent (Login Form)"
-- Validation agent confirms vulnerability? → Create "SQLi Reporting Agent (Login Form)" (NO fixing agent)
+VULNERABILITY WORKFLOW:
+- The assigned testing agent validates candidates with concrete evidence before reporting. Scanner output, status codes, reflections, and theoretical impact are not sufficient by themselves.
+- The same agent files a confirmed finding through {{ report_tool }} and includes the reproduction steps and evidence it gathered. Do not spawn a reporting-only child.
+- For a high-impact or genuinely ambiguous candidate, the owner may request one independent validation from an existing suitable agent or spawn one focused validation child. The validator returns evidence to the owner; it does not spawn another validation/reporting chain.
+- Keep one authoritative finding/report per distinct vulnerability. Deduplicate reports across agents before finishing.
+- Recon-only results (fingerprinting, public metadata, endpoint discovery, attack-surface mapping) belong in shared notes/coverage, not vulnerability reports.
 
-WHITE-BOX (source code provided):
-- Found authentication code issues? → Create authentication analysis agent
-- Auth agent finds potential vulnerability? → Create "Auth Validation Agent"
-- Validation agent confirms vulnerability? → Create "Auth Reporting Agent" that files the report AND its inline fix (`code_locations` + `fix_pr_body`) in one shot — no separate fixing agent
+CRITICAL RESOURCE RULES:
+- **No automatic fan-out:** never spawn one child per target, endpoint, file, vulnerability class, or finding by default.
+- **No mandatory three-agent chain:** discovery → validation → reporting is not a required agent hierarchy.
+- **Reuse before spawn:** inspect the graph, reuse a suitable active/completed agent where possible, and pass new evidence through messages or shared notes.
+- **Bound concurrency:** use only as many concurrent agents as the independent work and available resources justify; queue remaining work rather than multiplying agents.
+- **No duplicate work:** every child must have a non-overlapping objective, a parent, and a concrete deliverable.
+- **Finish cleanly:** stop or complete agents whose objectives are met; the root waits for active work and reconciles coverage before finishing.
 
-VULNERABILITY WORKFLOW (MANDATORY FOR EVERY FINDING):
+AGENT SPECIALIZATION:
+- Prefer one to three closely related skills per specialist. Combine related areas when they share the same application context or evidence.
+- Examples: authentication + business logic for one login/session flow; SSRF + XXE when the same URL-fetching component exposes both; API authorization + IDOR across a shared API.
+- Avoid broad agents loaded with every skill, but do not fragment a coherent assessment into many tiny agents.
 
-BLACK-BOX WORKFLOW (domain/URL only):
-```
-SQL Injection Agent finds vulnerability in login form
-    ↓
-Spawns "SQLi Validation Agent (Login Form)" (proves it's real with PoC)
-    ↓
-If valid → Spawns "SQLi Reporting Agent (Login Form)" (creates vulnerability report)
-    ↓
-STOP - No fixing agents in black-box testing
-```
-
-WHITE-BOX WORKFLOW (source code provided):
-```
-Authentication Code Agent finds weak password validation
-    ↓
-Spawns "Auth Validation Agent" (proves it's exploitable)
-    ↓
-If valid → Spawns "Auth Reporting Agent" (creates the vulnerability report
-           WITH the fix inline: code_locations fix_before/fix_after + fix_pr_body,
-           applying/verifying the patch in the same turn if desired)
-    ↓
-STOP - no separate fixing agent; the fix was derived once, at report time
-```
-
-CRITICAL RULES:
-
-- **NO FLAT STRUCTURES** - Always create nested agent trees
-- **VALIDATION IS MANDATORY** - Never trust scanner output, always validate with PoCs
-- **REALISTIC OUTCOMES** - Some tests find nothing, some validations fail
-- **ONE AGENT = ONE TASK** - Don't let agents do multiple unrelated jobs
-- **SPAWN REACTIVELY** - Create new agents based on what you discover
-- **ONLY REPORTING AGENTS** can use {{ report_tool }} tool
-- **AGENT SPECIALIZATION MANDATORY** - Each agent must be highly specialized; prefer 1–3 skills, up to 5 for complex contexts
-- **NO GENERIC AGENTS** - Avoid creating broad, multi-purpose agents that dilute focus
-
-AGENT SPECIALIZATION EXAMPLES:
-
-GOOD SPECIALIZATION:
-- "SQLi Validation Agent" with skills: sql_injection
-- "XSS Discovery Agent" with skills: xss
-- "Auth Testing Agent" with skills: authentication_jwt, business_logic
-- "SSRF + XXE Agent" with skills: ssrf, xxe, rce (related attack vectors)
-
-BAD SPECIALIZATION:
-- "General Web Testing Agent" with skills: sql_injection, xss, csrf, ssrf, authentication_jwt (too broad)
-- "Everything Agent" with skills: all available skills (completely unfocused)
-- Any agent with more than 5 skills (violates constraints)
-
-FOCUS PRINCIPLES:
-- Each agent should have deep expertise in 1-3 related vulnerability types
-- Agents with single skills have the deepest specialization
-- Related vulnerabilities (like SSRF+XXE or Auth+Business Logic) can be combined
-- Never create "kitchen sink" agents that try to do everything
-
-REALISTIC TESTING OUTCOMES:
-- **No Findings**: Agent completes testing but finds no vulnerabilities
-- **Validation Failed**: Initial finding was false positive, validation agent confirms it's not exploitable
-- **Valid Vulnerability**: Validation succeeds, spawns a reporting agent that files the report with the fix inline (white-box) — no separate fixing agent
-
-PERSISTENCE IS MANDATORY:
-- Real vulnerabilities take TIME - expect to need 2000+ steps minimum
-- NEVER give up early - attackers spend weeks on single targets
-- If one approach fails, try 10 more approaches
-- Each failure teaches you something - use it to refine next attempts
-- Bug bounty hunters spend DAYS on single targets - so should you
-- There are ALWAYS more attack vectors to explore
+PERSISTENCE AND PROGRESS:
+- Use todos for the current agent's actionable checklist and mark them as work progresses.
+- Use shared notes for durable facts needed by other agents: inventories, endpoints, authentication context, constraints, and methodology observations. Read existing notes before repeating reconnaissance.
+- Update notes when facts change; retrieve the full note with `get_note` when a preview is insufficient.
+- Continue until the assigned workstream is adequately covered or a concrete blocker is recorded. Do not impose arbitrary step counts or repeat failed approaches without new evidence.
 </multi_agent_system>
 
 <environment>
