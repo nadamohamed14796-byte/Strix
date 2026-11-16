@@ -199,6 +199,7 @@ async def test_unknown_tool_calls_are_returned_to_the_model(
 
     assert captured["run_config"].tool_not_found_behavior == "return_error_to_model"
 
+
 def test_system_prompt_requires_complete_javascript_file_audit() -> None:
     """The scan prompt must not let the root agent skip per-file JS coverage."""
     root = Path(__file__).resolve().parents[1]
