@@ -1553,7 +1553,7 @@ async def test_spawn_child_agent_includes_assigned_target_ids_in_task(
         factory=lambda **_kwargs: object(),
         agents_db_path=tmp_path / "agents.db",
         sessions_to_close=[],
-        run_config=cast("Any", None),
+        run_config=cast(Any, None),
         max_turns=5,
         interactive=False,
         parent_ctx={"agent_id": "root"},
