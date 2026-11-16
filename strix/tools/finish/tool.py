@@ -51,10 +51,9 @@ def _do_finish(
         if report_state is None:
             logger.warning("No global report state; scan results not persisted")
             return {
-                "success": True,
-                "scan_completed": True,
-                "message": "Scan completed (not persisted)",
-                "warning": "Results could not be persisted - report state unavailable",
+                "success": False,
+                "scan_completed": False,
+                "error": "Cannot verify JavaScript audit coverage because report state is unavailable; scan remains incomplete.",
             }
         from strix.tools.javascript_audit.tool import javascript_audit_status
 
@@ -81,7 +80,7 @@ def _do_finish(
             recommendations=recommendations.strip(),
         )
         vuln_count = len(report_state.vulnerability_reports)
-    except (ImportError, AttributeError) as e:
+    except (ImportError, AttributeError, OSError, RuntimeError) as e:
         logger.exception("finish_scan persistence failed")
         return {"success": False, "error": f"Failed to complete scan: {e!s}"}
     else:
