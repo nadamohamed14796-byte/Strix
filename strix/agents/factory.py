@@ -28,6 +28,7 @@ from strix.tools.agents_graph.tools import (
 from strix.tools.finish.tool import finish_scan
 from strix.tools.javascript_audit.tool import (
     complete_javascript_inventory,
+    get_javascript_audit_status,
     record_javascript_asset,
     record_javascript_assets,
 )
@@ -494,6 +495,7 @@ _BASE_TOOLS: tuple[Tool, ...] = (
     load_skill,
     record_javascript_asset,
     record_javascript_assets,
+    get_javascript_audit_status,
     complete_javascript_inventory,
     create_todo,
     list_todos,
