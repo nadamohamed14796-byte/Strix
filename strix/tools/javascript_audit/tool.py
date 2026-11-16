@@ -8,11 +8,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from agents import RunContextWrapper, function_tool
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 _LOCK = asyncio.Lock()
@@ -21,7 +23,7 @@ _VALID_STATUSES = {"discovered", "analyzed", "failed", "skipped"}
 
 def _ledger_path() -> Path | None:
     try:
-        from strix.report.state import get_global_report_state
+        from strix.report.state import get_global_report_state  # noqa: PLC0415
 
         state = get_global_report_state()
         if state is None:
@@ -40,7 +42,7 @@ def _load(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"JavaScript audit ledger is unreadable: {exc}") from exc
     if not isinstance(raw, dict) or not isinstance(raw.get("assets"), dict):
-        raise RuntimeError("JavaScript audit ledger has an invalid structure")
+        raise TypeError("JavaScript audit ledger has an invalid structure")
     return raw
 
 
@@ -52,7 +54,7 @@ def _save(path: Path, data: dict[str, Any]) -> None:
 
 
 @function_tool(timeout=30)
-async def record_javascript_asset(
+async def record_javascript_asset(  # noqa: PLR0911 - early returns preserve clear validation errors.
     asset_url: str,
     status: Literal["discovered", "analyzed", "failed", "skipped"] = "discovered",
     notes: str = "",
