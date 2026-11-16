@@ -218,7 +218,7 @@ def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
             return
 
         identity_json = json.dumps(identity, ensure_ascii=False, separators=(",", ":"))
-        target_id = hashlib.sha256(identity_json.encode("utf-8")).hexdigest()[:12]
+        target_id = hashlib.sha256(identity_json.encode("utf-8")).hexdigest()[:16]
         authorized_entry = {
             "target_id": target_id,
             "type": target_type,
