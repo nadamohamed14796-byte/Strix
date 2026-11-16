@@ -1477,3 +1477,50 @@ async def test_target_ledger_reassigns_targets_after_terminal_worker_failure() -
 
     assert coordinator.target_ledger["target-a"]["assigned_to"] == "recon-retry"
     assert coordinator.target_ledger["target-a"]["attempts"] == 2
+
+
+@pytest.mark.asyncio
+async def test_target_ledger_survives_resume_and_rejects_scope_drift() -> None:
+    ledger = [
+        {
+            "target_id": "target-a",
+            "type": "web_application",
+            "value": "https://a.example",
+            "workspace_path": "",
+        }
+    ]
+    coordinator = AgentCoordinator()
+    await coordinator.initialize_target_ledger(ledger)
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.register(
+        "recon-a",
+        "Recon A",
+        parent_id="root",
+        phase="recon",
+        target_ids=["target-a"],
+    )
+    await coordinator.record_target_outcomes(
+        "recon-a",
+        [{"target_id": "target-a", "status": "complete", "summary": "Host and HTTP surface inventoried"}],
+    )
+    await coordinator.set_status("recon-a", "completed")
+
+    restored = AgentCoordinator()
+    await restored.restore(await coordinator.snapshot())
+    await restored.initialize_target_ledger(ledger)
+
+    assert restored.target_ledger["target-a"]["status"] == "recon_complete"
+    assert restored.target_ledger["target-a"]["attempts"] == 1
+
+    with pytest.raises(ValueError, match="authorized target set changed"):
+        await restored.initialize_target_ledger(
+            [
+                *ledger,
+                {
+                    "target_id": "target-b",
+                    "type": "web_application",
+                    "value": "https://b.example",
+                    "workspace_path": "",
+                },
+            ]
+        )
