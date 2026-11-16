@@ -25,6 +25,21 @@ Before spawning agents, analyze the target from the scan config/scope and any pr
 3. **Determine approach** - blackbox, greybox, or whitebox assessment
 4. **Prioritize by risk** - critical assets and high-value targets first
 
+
+## Global Multi-Target Phase Gate
+
+For a scan with multiple targets, especially large lists, the workflow is scan-wide and strictly phased. **Do not run recon and vulnerability testing as interleaved per-target pipelines.**
+
+1. Build a canonical ledger from the complete input target list. Give each target a stable ID and preserve its original value and provenance. Track total and per-target states: queued, recon in progress, recon complete, blocked with reason, testing queued, testing in progress, and testing complete.
+2. Partition the full ledger into deterministic, non-overlapping recon batches. Every target must appear exactly once. Bound active workers to available capacity and queue the remaining batches; never sample, truncate, or silently omit targets.
+3. Spawn recon-only workers. Their instructions must explicitly prohibit vulnerability testing, fuzzing, payload execution, exploit validation, and spawning testing/validation/reporting workers. Each worker returns structured results keyed by target ID.
+4. The root agent alone controls the phase transition. A finished recon worker does not authorize testing on its targets. Continue dispatching queued batches and collect all results. Retry transient errors and record terminal blockers with evidence/reason.
+5. Reconcile the entire ledger before transition: every target has a recon outcome; no target is missing, duplicated between batches, queued, in progress, or retryable; discovered in-scope assets are attached to their parent target. If reconciliation fails, remain in Recon and repair the gap.
+6. Only when the global reconciliation passes, declare Recon complete and dispatch testing workers from the consolidated inventory. Testing may then run concurrently, but every task and result remains linked to its target ID.
+7. On resume, rebuild/reconcile the ledger from persisted state before creating more workers. Never infer completion from agent counts or an unverified summary.
+
+This gate preserves the established two-stage behavior: **all-target Recon first, Testing second**. Parallelism is allowed within each stage, not across the Recon/Testing boundary.
+
 ## Agent Architecture
 
 Structure agents by function:
