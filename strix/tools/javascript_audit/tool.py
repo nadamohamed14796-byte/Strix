@@ -58,10 +58,10 @@ def _save(path: Path, data: dict[str, Any]) -> None:
             suffix=".tmp",
             delete=False,
         ) as temp:
+            temp_path = Path(temp.name)
             temp.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
             temp.flush()
             os.fsync(temp.fileno())
-            temp_path = Path(temp.name)
         temp_path.replace(path)
     except Exception:
         if temp_path is not None:
