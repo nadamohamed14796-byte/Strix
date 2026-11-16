@@ -117,7 +117,10 @@ async def view_agent_graph(ctx: RunContextWrapper) -> str:
             "target_ledger": {
                 "total": len(coordinator.target_ledger),
                 "counts": dict(
-                    Counter(entry.get("status", "queued") for entry in coordinator.target_ledger.values())
+                    Counter(
+                        entry.get("status", "queued")
+                        for entry in coordinator.target_ledger.values()
+                    )
                 ),
                 "items": [
                     {
