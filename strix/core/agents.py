@@ -98,13 +98,13 @@ class AgentCoordinator:
                 aid for aid, metadata in self.metadata.items()
                 if aid != agent_id
                 and metadata.get("phase", "recon") == "recon"
-                and self.statuses.get(aid) != "completed"
+                and self.statuses.get(aid) in {"running", "waiting", "budget_paused"}
             ]
             if unfinished:
                 details = ", ".join(
                     f"{aid}={self.statuses.get(aid, 'unknown')}" for aid in unfinished
                 )
-                raise ValueError(f"Recon workers are not all completed: {details}")
+                raise ValueError(f"Recon workers are still active: {details}")
             self.scan_phase = "testing"
             self.metadata.setdefault(agent_id, {})["phase"] = "testing"
         await self._maybe_snapshot()
