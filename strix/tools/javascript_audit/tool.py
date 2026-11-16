@@ -108,6 +108,7 @@ async def record_javascript_asset(
                 "content_sha256": (
                     content_sha256.lower() or previous.get("content_sha256", "")
                 ),
+                "sources": previous.get("sources", []),
             }
             assets[key] = entry
             if status == "discovered":
