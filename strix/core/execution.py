@@ -136,6 +136,29 @@ def _transient_model_retry_delay(attempt: int) -> float:
     return min(delay, _TRANSIENT_MODEL_RETRY_MAX_DELAY_S)
 
 
+async def _repair_session_tool_history(session: Session, agent_id: str) -> list[Any]:
+    """Remove orphaned tool outputs before the SDK replays a persisted session."""
+    try:
+        original = list(await session.get_items())
+        repaired, changed = dedupe_history_call_ids(original)
+        if not changed:
+            return original
+        if await replace_session_items(session, repaired, expected_len=len(original)):
+            logger.warning(
+                "repaired incomplete tool-call history before resuming %s",
+                agent_id,
+            )
+            return repaired
+        logger.warning(
+            "session changed during tool-history repair for %s; leaving newer history untouched",
+            agent_id,
+        )
+        return original
+    except Exception:
+        logger.exception("could not validate session history before running %s", agent_id)
+        return []
+
+
 async def _salvage_stream_to_session(
     session: Session,
     pre_run_items: list[Any],
@@ -687,29 +710,7 @@ async def _run_cycle(  # noqa: PLR0912, PLR0915
                     await _compact_session(agent, session, run_config, force=False)
                 except Exception:
                     logger.exception("proactive compaction failed for %s", agent_id)
-                try:
-                    pre_run_items = list(await session.get_items())
-                    repaired_items, history_repaired = dedupe_history_call_ids(pre_run_items)
-                    if history_repaired:
-                        replaced = await replace_session_items(
-                            session,
-                            repaired_items,
-                            expected_len=len(pre_run_items),
-                        )
-                        if replaced:
-                            pre_run_items = repaired_items
-                            logger.warning(
-                                "repaired incomplete tool-call history before resuming %s",
-                                agent_id,
-                            )
-                        else:
-                            logger.warning(
-                                "session changed during tool-history repair for %s; "
-                                "leaving the newer history untouched",
-                                agent_id,
-                            )
-                except Exception:
-                    logger.exception("could not validate session history before running %s", agent_id)
+                pre_run_items = await _repair_session_tool_history(session, agent_id)
             stream = Runner.run_streamed(
                 agent,
                 input=input_data,
