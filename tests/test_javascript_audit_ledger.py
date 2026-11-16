@@ -144,11 +144,6 @@ def test_finish_scan_refuses_to_finish_before_inventory_is_closed(tmp_path, monk
 
 
 def test_finish_scan_accepts_closed_inventory_and_terminal_asset_gaps(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
-    import strix.report.state as report_state
-    from strix.tools.finish.tool import _do_finish
-
     _save(
         tmp_path / "javascript_audit.json",
         {
