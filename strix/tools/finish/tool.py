@@ -110,7 +110,8 @@ async def _target_phase_finish_error(coordinator: Any) -> dict[str, Any] | None:
     async with coordinator._lock:
         ledger = coordinator.target_ledger
         unresolved = [
-            target_id for target_id, entry in ledger.items()
+            target_id
+            for target_id, entry in ledger.items()
             if entry.get("status") not in {"recon_complete", "blocked"}
         ]
         testable = any(entry.get("status") == "recon_complete" for entry in ledger.values())
