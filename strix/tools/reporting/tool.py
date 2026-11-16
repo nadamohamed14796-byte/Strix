@@ -329,6 +329,21 @@ async def _do_create(  # noqa: PLR0912
         }
 
 
+def _reporting_phase_error(ctx: RunContextWrapper) -> str | None:
+    """Prevent Recon workers from filing assessment findings before the global gate."""
+    inner = ctx.context if isinstance(ctx.context, dict) else {}
+    coordinator = inner.get("coordinator")
+    if coordinator is not None and getattr(coordinator, "scan_phase", "recon") != "testing":
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Finding reports are disabled until the root opens the scan-wide Testing phase",
+            },
+            ensure_ascii=False,
+        )
+    return None
+
+
 def _caller_identity(ctx: RunContextWrapper) -> tuple[str | None, str | None]:
     """Return the (agent_id, agent_name) of the agent invoking this tool."""
     inner = ctx.context if isinstance(ctx.context, dict) else {}
@@ -674,6 +689,9 @@ async def create_vulnerability_report(
             template engine's auto-escaping over string interpolation.
         fix_effort: "low"
     """
+    if phase_error := _reporting_phase_error(ctx):
+        return phase_error
+
     agent_id, agent_name = _caller_identity(ctx)
 
     result = await _do_create(
