@@ -37,6 +37,11 @@ jobs:
       - name: Ruff lint
         run: uv run ruff check .
 
+      - name: Preview format fixes
+        run: |
+          uv run ruff format strix/core/agents.py strix/tools/agents_graph/tools.py strix/tools/finish/tool.py strix/tools/javascript_audit/tool.py tests/test_cli_target_list.py tests/test_execution.py tests/test_runner_root_prompt.py tests/test_tool_call_ids.py
+          git diff -- strix/core/agents.py strix/tools/agents_graph/tools.py strix/tools/finish/tool.py strix/tools/javascript_audit/tool.py tests/test_cli_target_list.py tests/test_execution.py tests/test_runner_root_prompt.py tests/test_tool_call_ids.py
+
       - name: Ruff format check
         run: uv run ruff format --check .
 
