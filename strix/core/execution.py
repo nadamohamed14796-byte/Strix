@@ -706,7 +706,7 @@ async def _run_cycle(  # noqa: PLR0912, PLR0915
     model_retries = 0
     while True:
         stream: Any = None
-        pre_run_items: list[Any] | None = []
+        pre_run_items: list[Any] | None = None
         try:
             await coordinator.mark_running(agent_id)
             if session is not None:
