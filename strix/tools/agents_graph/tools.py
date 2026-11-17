@@ -803,6 +803,7 @@ async def agent_finish(
             "summary": result_summary,
             "findings_count": len(findings or []),
             "has_recommendations": bool(final_recommendations),
+            "open_items_count": len(open_items or []),
         },
         ensure_ascii=False,
         default=str,
