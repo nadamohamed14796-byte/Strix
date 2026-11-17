@@ -45,6 +45,7 @@ def _render_completion_report(
     success: bool,
     result_summary: str,
     findings: list[str],
+    open_items: list[str],
     recommendations: list[str],
 ) -> str:
     """Render a child's completion report as plain structured text.
@@ -70,6 +71,12 @@ def _render_completion_report(
         lines.append("")
         lines.append("Findings:")
         lines.extend(f"- {f}" for f in findings)
+    lines.append("")
+    lines.append("Open items (unresolved, need follow-up):")
+    if open_items:
+        lines.extend(f"- {item}" for item in open_items)
+    else:
+        lines.append("- (none)")
     if recommendations:
         lines.append("")
         lines.append("Recommendations:")
@@ -390,6 +397,31 @@ async def wait_for_agents(  # noqa: PLR0911
             default=str,
         )
 
+    _, statuses, names, _ = await coordinator.graph_snapshot()
+    active_others = [
+        aid for aid, status in statuses.items()
+        if aid != me and status in ACTIVE_STATUSES
+    ]
+    if not active_others:
+        return json.dumps(
+            {
+                "success": True,
+                "wait_outcome": "no_active_agents",
+                "reason": reason,
+                "agents": [
+                    {"agent_id": aid, "name": names.get(aid, aid), "status": status}
+                    for aid, status in statuses.items() if aid != me
+                ],
+                "note": (
+                    "No other agent is running or waiting, so no message can arrive. "
+                    "Review completed agents' reports and notes, continue your own work, "
+                    "spawn a new specialist if needed, or finish."
+                ),
+            },
+            ensure_ascii=False,
+            default=str,
+        )
+
     await coordinator.park_waiting(me, wait_kind="agents")
     try:
         await asyncio.wait_for(coordinator.wait_for_message(me), timeout_seconds)
@@ -631,6 +663,7 @@ async def agent_finish(
     ctx: RunContextWrapper,
     result_summary: str,
     findings: list[str] | None = None,
+    open_items: list[str] | None = None,
     success: bool = True,
     report_to_parent: bool = True,
     final_recommendations: list[str] | None = None,
@@ -664,6 +697,8 @@ async def agent_finish(
             ``create_vulnerability_report`` first (or
             ``create_dependency_report`` for dependency CVEs); this is
             for narrative.
+        open_items: Unresolved candidates, missing evidence, blocked checks,
+            or follow-up work. Never silently discard a plausible candidate.
         success: Whether the assigned subtask was completed
             successfully. Default ``True``.
         report_to_parent: Whether to deliver the completion report to
@@ -731,6 +766,7 @@ async def agent_finish(
             success=success,
             result_summary=result_summary,
             findings=list(findings or []),
+            open_items=list(open_items or []),
             recommendations=list(final_recommendations or []),
         )
         await coordinator.send(
