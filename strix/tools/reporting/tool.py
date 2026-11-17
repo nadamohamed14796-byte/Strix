@@ -162,6 +162,52 @@ _REQUIRED_FIELDS = {
 
 _VALID_FIX_EFFORT = frozenset({"trivial", "low", "medium", "high"})
 
+_VALIDATION_QUESTIONS = (
+    "in_scope", "specific_weakness", "attacker_controlled_input",
+    "security_boundary", "baseline_compared", "unauthorized_effect",
+    "impact_observed", "poc_reproducible", "attack_chain_complete",
+    "counterevidence_reviewed",
+)
+
+
+def _preserve_unverified_candidate(
+    *, title: str, candidate: dict[str, Any], status: str, reason: str
+) -> dict[str, Any]:
+    """Keep rejected candidates as notes without polluting vulnerability reports."""
+    payload = {"status": status, "reason": reason, "candidate": candidate,
+               "next_action": "Continue validation; do not list this as a confirmed vulnerability."}
+    try:
+        from strix.tools.notes.tools import _create_note_impl
+        saved = _create_note_impl(
+            title=f"[{status}] {str(title or 'Unverified candidate')[:160]}",
+            content=json.dumps(payload, ensure_ascii=False, default=str, indent=2),
+            category="findings", tags=["finding-validation", status.lower()],
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Could not preserve unverified candidate")
+        return {"success": False, "error": f"Candidate blocked; note persistence failed: {exc}"}
+    if not saved.get("success"):
+        return {"success": False, "error": "Candidate blocked; note persistence failed: " + str(saved.get("error"))}
+    return {"success": True, "action": "preserved_not_reported", "status": status,
+            "reason": reason, "note_id": saved.get("note_id"),
+            "message": "Candidate saved as a note, not filed as a vulnerability."}
+
+
+def _validate_ten_questions(answers: dict[str, Any] | None) -> tuple[str | None, str | None]:
+    """Require an explicit boolean YES to each reportability question."""
+    if not isinstance(answers, dict):
+        return "NEEDS_VALIDATION", "The ten-question validation checklist was not supplied."
+    missing = [key for key in _VALIDATION_QUESTIONS if key not in answers]
+    failed = [key for key in _VALIDATION_QUESTIONS if answers.get(key) is not True]
+    if missing or failed:
+        details = []
+        if missing:
+            details.append("missing: " + ", ".join(missing))
+        if failed:
+            details.append("not passed: " + ", ".join(failed))
+        return "NEEDS_VALIDATION", "Ten-question validation failed (" + "; ".join(details) + ")."
+    return None, None
+
 
 async def _do_create(  # noqa: PLR0912
     *,
@@ -182,10 +228,25 @@ async def _do_create(  # noqa: PLR0912
     cve: str | None,
     cwe: str | None,
     code_locations: list[dict[str, Any]] | None,
+    validation_answers: dict[str, Any] | None = None,
     fix_pr_body: str | None = None,
     agent_id: str | None = None,
     agent_name: str | None = None,
 ) -> dict[str, Any]:
+    candidate = {
+        "title": title, "description": description, "impact": impact, "target": target,
+        "technical_analysis": technical_analysis, "poc_description": poc_description,
+        "poc_script_code": poc_script_code, "remediation_steps": remediation_steps,
+        "evidence": evidence, "assumptions": assumptions, "cvss_breakdown": cvss_breakdown,
+        "endpoint": endpoint, "method": method, "cwe": cwe,
+    }
+    gate_status, gate_reason = _validate_ten_questions(validation_answers)
+    if gate_status:
+        return _preserve_unverified_candidate(
+            title=title, candidate={**candidate, "validation_answers": validation_answers},
+            status=gate_status, reason=gate_reason or "Validation incomplete.",
+        )
+
     errors: list[str] = []
     fields = {
         "title": title,
@@ -239,6 +300,13 @@ async def _do_create(  # noqa: PLR0912
         cvss_score, severity, _vector = _calculate_cvss(cvss_breakdown)
     except ValueError as exc:
         return {"success": False, "error": "Validation failed", "errors": [str(exc)]}
+
+    if cvss_score <= 0.0 or severity == "info":
+        return _preserve_unverified_candidate(
+            title=title, candidate={**candidate, "cvss_score": cvss_score, "severity": severity},
+            status="INFORMATIONAL",
+            reason="CVSS is 0.0/None; observations without demonstrated security impact are not reportable.",
+        )
 
     try:
         from strix.report.state import get_global_report_state
@@ -381,6 +449,7 @@ async def create_vulnerability_report(
     cve: str | None = None,
     cwe: str | None = None,
     code_locations: list[dict[str, Any]] | None = None,
+    validation_answers: dict[str, Any] | None = None,
     fix_pr_body: str | None = None,
 ) -> str:
     """File a vulnerability report — one report per fully-verified finding.
@@ -400,6 +469,16 @@ async def create_vulnerability_report(
       dynamically PoC'd — a vulnerable dependency version pinned in a
       lockfile/manifest that matches a published advisory. File those
       with ``create_dependency_report`` instead, never with this tool.
+
+    **Mandatory ten-question validation gate**:
+
+    Before calling this tool, answer every key in validation_answers with the
+    boolean true only when supported by evidence:
+    in_scope, specific_weakness, attacker_controlled_input, security_boundary,
+    baseline_compared, unauthorized_effect, impact_observed, poc_reproducible,
+    attack_chain_complete, and counterevidence_reviewed. Missing, false, or
+    non-boolean answers block filing and preserve the candidate as a findings
+    note. This is runtime-enforced, not prompt-only.
 
     **Reporting and severity gate**:
 
@@ -716,6 +795,7 @@ async def create_vulnerability_report(
         cve=cve,
         cwe=cwe,
         code_locations=code_locations,
+        validation_answers=validation_answers,
         fix_pr_body=fix_pr_body,
         agent_id=agent_id,
         agent_name=agent_name,
