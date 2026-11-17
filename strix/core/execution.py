@@ -136,7 +136,9 @@ def _transient_model_retry_delay(attempt: int) -> float:
     return min(delay, _TRANSIENT_MODEL_RETRY_MAX_DELAY_S)
 
 
-async def _repair_session_tool_history(session: Session, agent_id: str) -> list[Any]:
+async def _repair_session_tool_history(
+    session: Session, agent_id: str
+) -> list[Any] | None:
     """Remove orphaned tool outputs before the SDK replays a persisted session."""
     try:
         original = list(await session.get_items())
@@ -148,7 +150,9 @@ async def _repair_session_tool_history(session: Session, agent_id: str) -> list[
         )
     except Exception:
         logger.exception("could not validate session history before running %s", agent_id)
-        return []
+        # None means the snapshot is unknown. Never treat a read/repair failure
+        # as an empty session: the salvage path must not overwrite prior history.
+        return None
 
     if not changed:
         return original
@@ -702,7 +706,7 @@ async def _run_cycle(  # noqa: PLR0912, PLR0915
     model_retries = 0
     while True:
         stream: Any = None
-        pre_run_items: list[Any] = []
+        pre_run_items: list[Any] | None = []
         try:
             await coordinator.mark_running(agent_id)
             if session is not None:
@@ -829,7 +833,7 @@ async def _run_cycle(  # noqa: PLR0912, PLR0915
                 if session is not None:
                     input_data = []
                 continue
-            if session is not None:
+            if session is not None and pre_run_items is not None:
                 await _salvage_stream_to_session(session, pre_run_items, stream, agent_id)
             if isinstance(exc, ProviderRefusalError):
                 logger.warning("agent %s refused by the model provider: %s", agent_id, exc)
