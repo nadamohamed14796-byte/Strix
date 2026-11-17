@@ -97,6 +97,19 @@ def test_is_context_overflow_matches_untyped_openrouter_400() -> None:
     assert compaction.is_context_overflow(openrouter)
 
 
+def test_is_context_overflow_matches_openai_compatible_gateway_400() -> None:
+    class UpstreamBadRequest(Exception):
+        status_code = 400
+
+    overflow = UpstreamBadRequest(
+        "context_length_exceeded: maximum context length is 180000 tokens"
+    )
+    assert compaction.is_context_overflow(overflow)
+
+    throttled = UpstreamBadRequest("rate limit exceeded; retry later")
+    assert not compaction.is_context_overflow(throttled)
+
+
 def test_is_context_overflow_ignores_rate_limit_shaped_bad_request() -> None:
     # A 400 that is really throttling must never be treated as an overflow.
     throttled = BadRequestError(
@@ -109,6 +122,12 @@ def test_is_context_overflow_ignores_rate_limit_shaped_bad_request() -> None:
         message="Invalid value for 'temperature'", model="m", llm_provider="openrouter"
     )
     assert not compaction.is_context_overflow(unrelated)
+
+
+def test_serialize_item_counts_full_tool_output() -> None:
+    large_output = "evidence-" * 1_000
+    serialized = compaction._serialize_item(_output("large", large_output))
+    assert large_output in serialized
 
 
 def test_select_split_never_orphans_tool_output(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -202,6 +221,20 @@ async def test_maybe_compact_rewrites_and_keeps_pairs(monkeypatch: pytest.Monkey
     assert "SUMMARY BODY" in items[0]["content"]
     assert len(items) < len(_turns(12))
     assert not _has_orphan_tool_output(items)
+
+
+@pytest.mark.asyncio
+async def test_forced_compaction_handles_single_oversized_item(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_budget(monkeypatch, keep_tokens=30, window=4_000)
+    _patch_summary(monkeypatch, "RECOVERED SUMMARY")
+    session = FakeSession([_user("x" * 5_000)])
+
+    assert await compaction.maybe_compact(session, model="m", force=True) is True
+    items = await session.get_items()
+    assert len(items) == 1
+    assert "RECOVERED SUMMARY" in items[0]["content"]
 
 
 @pytest.mark.asyncio
