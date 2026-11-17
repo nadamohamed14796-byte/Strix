@@ -194,17 +194,25 @@ def _preserve_unverified_candidate(
 
 
 def _validate_ten_questions(answers: dict[str, Any] | None) -> tuple[str | None, str | None]:
-    """Require an explicit boolean YES to each reportability question."""
+    """Require YES plus concrete evidence for each reportability question."""
     if not isinstance(answers, dict):
         return "NEEDS_VALIDATION", "The ten-question validation checklist was not supplied."
     missing = [key for key in _VALIDATION_QUESTIONS if key not in answers]
-    failed = [key for key in _VALIDATION_QUESTIONS if answers.get(key) is not True]
+    failed: list[str] = []
+    for key in _VALIDATION_QUESTIONS:
+        answer = answers.get(key)
+        if not isinstance(answer, dict):
+            if key not in missing:
+                failed.append(key)
+            continue
+        if answer.get("passed") is not True or not str(answer.get("evidence") or "").strip():
+            failed.append(key)
     if missing or failed:
         details = []
         if missing:
             details.append("missing: " + ", ".join(missing))
         if failed:
-            details.append("not passed: " + ", ".join(failed))
+            details.append("not passed or missing evidence: " + ", ".join(failed))
         return "NEEDS_VALIDATION", "Ten-question validation failed (" + "; ".join(details) + ")."
     return None, None
 
@@ -472,13 +480,13 @@ async def create_vulnerability_report(
 
     **Mandatory ten-question validation gate**:
 
-    Before calling this tool, answer every key in validation_answers with the
-    boolean true only when supported by evidence:
+    Before calling this tool, provide every validation_answers key as an
+    object with passed=true and a non-empty evidence string. Required keys:
     in_scope, specific_weakness, attacker_controlled_input, security_boundary,
     baseline_compared, unauthorized_effect, impact_observed, poc_reproducible,
-    attack_chain_complete, and counterevidence_reviewed. Missing, false, or
-    non-boolean answers block filing and preserve the candidate as a findings
-    note. This is runtime-enforced, not prompt-only.
+    attack_chain_complete, and counterevidence_reviewed. Missing answers,
+    failed answers, or answers without evidence block filing and preserve the
+    candidate as a findings note. This is runtime-enforced, not prompt-only.
 
     **Reporting and severity gate**:
 
