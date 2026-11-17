@@ -618,9 +618,7 @@ class AgentCoordinator:
                 self.recovery_counts.pop(target_agent_id, None)
                 self.idle_resume_counts.pop(target_agent_id, None)
                 self._parent_notified.discard(target_agent_id)
-                held = self._operator_paused and self.statuses[target_agent_id] == "budget_paused"
-                if not held:
-                    self.statuses[target_agent_id] = "waiting"
+                self.statuses[target_agent_id] = "waiting"
             runtime.wake.set()
             stream = runtime.stream
             interrupt_on_message = runtime.interrupt_on_message
