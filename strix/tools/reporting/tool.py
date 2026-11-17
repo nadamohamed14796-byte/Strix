@@ -1107,6 +1107,21 @@ async def _do_create_dependency(  # noqa: PLR0912
         )
     except ValueError as exc:
         return {"success": False, "error": "Validation failed", "errors": [str(exc)]}
+
+    if cvss_score is None or cvss_score <= 0.0 or severity in {"info", "none"}:
+        return _preserve_unverified_candidate(
+            title=title,
+            candidate={
+                "title": title, "description": description, "target": target,
+                "cve": parsed_cve, "package_name": package_name,
+                "installed_version": installed_version, "advisory_cvss": advisory_cvss,
+                "contextual_cvss_breakdown": contextual_cvss_breakdown,
+                "reachability": reachability, "reachability_evidence": reachability_evidence,
+            },
+            status="INFORMATIONAL",
+            reason="Dependency CVSS is 0.0/None; do not file a zero-impact dependency as a vulnerability.",
+        )
+
     dependency_metadata = _build_dependency_metadata(
         package_name=package_name,
         installed_version=installed_version,
