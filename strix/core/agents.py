@@ -465,6 +465,19 @@ class AgentCoordinator:
             if interrupt_on_message is not None:
                 runtime.interrupt_on_message = interrupt_on_message
 
+    async def resume_silent_user_wait(self, agent_id: str) -> bool:
+        """Undo a user wait only if the agent is still parked on the user."""
+        async with self._lock:
+            if self.statuses.get(agent_id) != "waiting" or self.wait_kinds.get(agent_id) != "user":
+                return False
+            self.statuses[agent_id] = "running"
+            self.errors.pop(agent_id, None)
+            self.wait_kinds.pop(agent_id, None)
+            self.runtimes.setdefault(agent_id, AgentRuntime()).user_wake_required = False
+            self._parent_notified.discard(agent_id)
+        await self._maybe_snapshot()
+        return True
+
     async def mark_running(self, agent_id: str) -> None:
         async with self._lock:
             if agent_id in self.statuses:
