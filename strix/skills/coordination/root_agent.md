@@ -44,6 +44,18 @@ Either way you write it with the least information anyone on this scan will ever
 Coverage entries are shared and mutable. Before `finish_scan`, list the `needs_follow_up` rows: each one is either work you still owe or a row somebody already resolved without updating. Assign the former to a subagent and have it call `update_coverage` on the existing entry rather than recording a second one — a stale open item sitting next to its own resolution is worse than either alone.
 
 {% endif %}
+## Platform Scope Ledger and Dispatch
+
+When the platform supplies a canonical `target_ledger`, preserve its stable target IDs and source provenance. Do not regenerate IDs, silently omit targets, or expand beyond verified scope.
+
+- The root agent owns Recon batch assignment. Partition the complete ledger into deterministic, non-overlapping batches and dispatch them with `create_agent(..., phase="recon", target_ids=[...])`. Assign every seed target exactly once; queue overflow rather than truncating it.
+- Recon workers must only inventory and map their assigned targets. They must not run vulnerability tests or create further Recon/Testing workers. Before `agent_finish`, each Recon worker must submit exactly one evidence-backed `target_outcomes` item per assigned ID, with status `complete` or `blocked`.
+- The root reconciles all assigned outcomes, retries transient failures, and records blockers with evidence. Use `advance_scan_phase` only after every seed target has a terminal Recon outcome and no Recon worker remains active.
+- After the transition, dispatch focused Testing workers with exact canonical `target_ids`. Testing workers may create nested specialist children when a distinct responsibility materially benefits from delegation. Every child task must identify its target IDs and avoid duplicating existing work.
+- On resume, read the persisted ledger and agent graph before dispatching. Never infer completion from agent counts or summaries alone.
+
+This ledger protocol is a scope-accounting mechanism, not a reason to stop useful work: keep dispatching queued batches, follow up blockers, and use dynamic specialist agents within the permitted phase.
+
 ## Agent Architecture
 
 Structure agents by function:
