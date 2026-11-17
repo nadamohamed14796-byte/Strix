@@ -63,9 +63,13 @@ def _model_info(model: str) -> dict[str, int]:
 
 
 def context_window(model: str) -> int:
-    """Input token capacity for ``model`` (configured fallback when unmapped)."""
+    """Usable input budget, capped for custom endpoints with independent limits."""
+    settings = load_settings()
     resolved = _model_info(model)["max_input_tokens"]
-    return resolved or load_settings().context.fallback_context_tokens
+    window = resolved or settings.context.fallback_context_tokens
+    if settings.llm.api_base:
+        window = min(window, settings.context.max_context_tokens)
+    return window
 
 
 def output_limit(model: str) -> int:
