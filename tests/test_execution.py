@@ -58,6 +58,22 @@ async def test_session_history_is_repaired_before_replay(monkeypatch: pytest.Mon
     assert replaced == {"items": [], "expected_len": 1}
 
 
+@pytest.mark.asyncio
+async def test_session_history_read_failure_is_not_treated_as_empty(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class BrokenSession:
+        async def get_items(self) -> list[Any]:
+            raise OSError("database temporarily unavailable")
+
+    result = await execution._repair_session_tool_history(
+        cast("Any", BrokenSession()), "agent-1"
+    )
+
+    assert result is None
+    assert "could not validate session history" in caplog.text
+
+
 class _StructuredRefusalStream:
     def __init__(self, refusal: str) -> None:
         self.run_loop_exception: BaseException | None = None
