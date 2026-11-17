@@ -56,7 +56,7 @@ from strix.tools.reporting.tool import (
     get_report,
     list_reports,
 )
-from strix.tools.respond.tool import respond_to_user
+from strix.tools.wait_for_user.tool import wait_for_user
 from strix.tools.thinking.tool import think
 from strix.tools.todo.tools import (
     create_todo,
@@ -435,7 +435,7 @@ def _make_shell_configurator(*, chat_completions: bool) -> Any:
 
 
 # Tools that hand control away by parking the agent rather than ending the scan.
-_PARKING_TOOLS: frozenset[str] = frozenset({"respond_to_user", "wait_for_agents"})
+_PARKING_TOOLS: frozenset[str] = frozenset({"wait_for_user", "wait_for_agents"})
 
 
 def _lifecycle_tool_completed(tool_name: str, output: Any) -> bool:
@@ -609,7 +609,7 @@ def build_strix_agent(
     agent_tools = [*_EXTRA_TOOLS, *(extra_tools or [])]
     if interactive:
         # Yielding to the user is only meaningful when one is attached.
-        agent_tools.append(respond_to_user)
+        agent_tools.append(wait_for_user)
     if is_root:
         tools: list[Tool] = [*_BASE_TOOLS, *agent_tools, finish_scan]
     else:
