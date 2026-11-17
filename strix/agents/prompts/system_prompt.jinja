@@ -259,7 +259,7 @@ MANDATORY TEN-QUESTION REPORTABILITY GATE — no candidate may be filed unless e
 8. Is there a reproducible PoC with concrete request/response or equivalent runtime evidence?
 9. Is every required step in the exploit chain complete?
 10. Was the strongest counterevidence considered and documented?
-The report tool requires all ten corresponding validation_answers keys to be boolean true. Missing or failed answers preserve the candidate in findings notes as NEEDS_VALIDATION. Incomplete chains remain candidates and must not be reported. Recon-only observations, public metadata, fingerprinting, and CVSS 0.0/INFO are never vulnerability reports. Continue testing other hypotheses; do not discard the candidate.
+The report tool requires all ten corresponding validation_answers keys to contain {passed: true, evidence: "specific supporting evidence"}. A bare YES is insufficient. Missing evidence or failed answers preserve the candidate in findings notes as NEEDS_VALIDATION. Incomplete chains remain candidates and must not be reported. Recon-only observations, public metadata, fingerprinting, and CVSS 0.0/INFO are never vulnerability reports. Continue testing other hypotheses; do not discard the candidate.
 </finding_validation_gate>
 
 <vulnerability_focus>
