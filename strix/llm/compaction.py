@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _CHECKPOINT_TAG = "<conversation-checkpoint>"
-_TOOL_OUTPUT_MAX_CHARS = 2_000
 _MIN_ITEMS_TO_COMPACT = 6
 _HEAD_TRUNCATED_MARKER = "\n\n[... older conversation omitted to fit the summary request ...]\n\n"
 
@@ -72,7 +71,8 @@ def is_context_overflow(exc: BaseException) -> bool:
     """
     if isinstance(exc, ContextWindowExceededError):
         return True
-    if isinstance(exc, BadRequestError):
+    # OpenAI-compatible gateways may expose an overflow as a generic HTTP 400.
+    if isinstance(exc, BadRequestError) or getattr(exc, "status_code", None) == 400:
         msg = str(exc).lower()
         if any(x in msg for x in _OVERFLOW_EXCLUSIONS):
             return False
@@ -147,22 +147,18 @@ def _content_text(content: Any) -> str:
     return ""
 
 
-def _truncate(text: str, limit: int) -> str:
-    return text if len(text) <= limit else f"{text[:limit]}\n[truncated]"
-
-
 def _serialize_item(item: Any) -> str:
     if not isinstance(item, dict):
         return str(item)
     item_type = item.get("type")
     role = item.get("role")
     if item_type == "function_call":
-        args = _truncate(str(item.get("arguments", "")), _TOOL_OUTPUT_MAX_CHARS)
+        args = str(item.get("arguments", ""))
         return f"[tool_call {item.get('name', '?')}] {args}"
     if item_type == "function_call_output":
         output = item.get("output")
         text = output if isinstance(output, str) else _content_text(output)
-        return f"[tool_result] {_truncate(text, _TOOL_OUTPUT_MAX_CHARS)}"
+        return f"[tool_result] {text}"
     if item_type == "reasoning":
         return ""
     if role or item_type == "message":
@@ -342,7 +338,7 @@ async def maybe_compact(
 
     async with session_write_lock(session):
         items = list(await session.get_items())
-    if len(items) < _MIN_ITEMS_TO_COMPACT:
+    if len(items) < _MIN_ITEMS_TO_COMPACT and not force:
         return False
 
     window = context_window(model)
