@@ -28,7 +28,7 @@ async def wait_for_user(ctx: RunContextWrapper) -> str:
     if coordinator is None or me is None:
         return json.dumps({"success": False, "error": "Agent coordinator or agent_id missing in context"})
     if not bool(inner.get("interactive", False)):
-        return json.dumps({"success": False, "error": "No user is attached; continue working or finish the scan."})
+        return json.dumps({"success": False, "error": "No user is attached to an autonomous run. Keep working, and call finish_scan (root) or agent_finish (subagent) when the task is done."})
     async with coordinator._lock:
         stopped = coordinator.statuses.get(me) == "stopped"
     if stopped:
