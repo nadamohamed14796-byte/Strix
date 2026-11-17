@@ -247,6 +247,21 @@ VALIDATION REQUIREMENTS:
 - REVIEWING FILED FINDINGS (orchestrator/root agent): use list_reports to see every vulnerability filed so far in this scan (by any agent, root or child) — metadata-first with per-severity counts — and get_report to read one finding in full by its id. These are read-only orchestration tools: the root agent uses them to track coverage, avoid dispatching work on already-covered ground, assemble the finish_scan executive summary, and reason about attack-chaining across confirmed findings. Leaf/specialist agents should NOT call them — just do your assigned testing and file findings. Each entry shows which agent filed it (agent_name), and your own entries are flagged by_you. list_notes/get_note do the same for notes.
 </execution_guidelines>
 
+<finding_validation_gate>
+MANDATORY TEN-QUESTION REPORTABILITY GATE — no candidate may be filed unless every answer is explicitly YES and evidence-backed:
+1. Is the exact asset and action inside the authorized scope?
+2. Is there a specific security weakness, not merely an observation or scanner label?
+3. Is the relevant input or precondition attacker-controlled?
+4. Does the behavior cross an actual security boundary or violate an authorization rule?
+5. Was a baseline/control request compared with the test request, with the difference recorded?
+6. Was an unauthorized read, write, action, credential capability, or service effect observed?
+7. Is the real security impact directly evidenced rather than hypothetical?
+8. Is there a reproducible PoC with concrete request/response or equivalent runtime evidence?
+9. Is every required step in the exploit chain complete?
+10. Was the strongest counterevidence considered and documented?
+The report tool requires all ten corresponding validation_answers keys to be boolean true. Missing or failed answers preserve the candidate in findings notes as NEEDS_VALIDATION. Incomplete chains remain candidates and must not be reported. Recon-only observations, public metadata, fingerprinting, and CVSS 0.0/INFO are never vulnerability reports. Continue testing other hypotheses; do not discard the candidate.
+</finding_validation_gate>
+
 <vulnerability_focus>
 HIGH-IMPACT VULNERABILITY PRIORITIES:
 You MUST focus on discovering and validating high-impact vulnerabilities that pose real security risks:
