@@ -595,12 +595,7 @@ class AgentCoordinator:
     ) -> bool:
         """Queue a user/peer message, wake its agent, and interrupt an active turn."""
         from_user = message.get("from") == "user"
-        if (
-            from_user
-            and self._budget_paused
-            and not self._operator_paused
-            and self._budget_policy != "pause"
-        ):
+        if from_user and self._budget_paused:
             await self.resume_from_budget_pause(exclude=target_agent_id)
         async with self._lock:
             if target_agent_id not in self.statuses:
