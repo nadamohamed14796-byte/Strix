@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from strix.config import load_settings
+from types import SimpleNamespace
+
+from strix.config import ContextSettings, load_settings
 from strix.llm import context_budget
 
 
@@ -24,6 +26,13 @@ def test_context_window_strips_provider_prefix() -> None:
 def test_context_window_chatgpt_prefix_skips_provider_auth(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        context_budget,
+        "load_settings",
+        lambda: SimpleNamespace(
+            context=ContextSettings(), llm=SimpleNamespace(api_base=None)
+        ),
+    )
     context_budget._model_info.cache_clear()
     calls: list[str] = []
 
@@ -37,6 +46,30 @@ def test_context_window_chatgpt_prefix_skips_provider_auth(
         assert calls == ["gpt-5.6-luna"]
     finally:
         context_budget._model_info.cache_clear()
+
+
+def test_custom_endpoint_context_window_is_capped(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        context_budget,
+        "_model_info",
+        lambda _model: {"max_input_tokens": 180_000, "max_output_tokens": 4_096},
+    )
+    monkeypatch.setattr(
+        context_budget,
+        "load_settings",
+        lambda: SimpleNamespace(
+            context=SimpleNamespace(
+                fallback_context_tokens=160_000, max_context_tokens=160_000
+            ),
+            llm=SimpleNamespace(api_base="https://inference.dahl.global/v1"),
+        ),
+    )
+    assert context_budget.context_window("openai/deepseek-ai/DeepSeek-V4-Flash-0731") == 160_000
+
+
+def test_context_settings_use_safe_fallback_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("STRIX_CONTEXT_FALLBACK_TOKENS", raising=False)
+    assert ContextSettings().fallback_context_tokens == 160_000
 
 
 def test_context_window_unmapped_uses_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
