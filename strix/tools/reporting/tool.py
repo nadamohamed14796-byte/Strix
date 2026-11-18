@@ -160,7 +160,7 @@ _VALID_GATE_IMPACT_TYPES = frozenset({"person", "platform", "credential", "recon
 _VALID_GATE_CREDENTIAL_TYPES = frozenset({"none", "public_client", "private"})
 
 
-def _finding_validation_gate(
+def _finding_validation_gate(  # noqa: PLR0911
     *,
     impact_type: str | None,
     impact_proven: bool | None,
@@ -222,7 +222,11 @@ def _xss_validation_gate(
     if not _XSS_INDICATORS.search(haystack):
         return None, None
     if not isinstance(xss_validation, dict):
-        return "NEEDS_VALIDATION", "XSS requires explicit source, encoding, sink, browser-execution, and affected-page evidence."
+        return (
+            "NEEDS_VALIDATION",
+            "XSS requires explicit source, encoding, sink, browser-execution, and "
+            "affected-page evidence.",
+        )
     required_text = (
         "source_location",
         "source_to_sink_trace",
@@ -331,7 +335,7 @@ def _preserve_validation_candidate(
             category="findings",
             tags=["finding-validation", status.lower()],
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Could not preserve blocked finding")
         return {
             "success": False,
@@ -978,7 +982,7 @@ def _do_delete(
     }
 
 
-async def _do_create(
+async def _do_create(  # noqa: PLR0911
     *,
     title: str,
     description: str,
@@ -2169,7 +2173,7 @@ def _build_dependency_evidence(
     return evidence
 
 
-async def _do_create_dependency(  # noqa: PLR0912, PLR0915
+async def _do_create_dependency(  # noqa: PLR0911, PLR0912, PLR0915
     *,
     title: str,
     description: str,
@@ -2641,7 +2645,8 @@ async def create_dependency_report(
         impact_type: person/platform/credential/recon/other; classify the actual consequence.
         impact_proven: true only when direct evidence demonstrates real impact.
         chain_complete: true only when all required exploit steps and final impact are proven.
-        credential_type: none/public_client/private; separate public client config from private secrets.
+        credential_type: none/public_client/private; separate public client config
+            from private secrets.
         credential_access_proven: true only after demonstrating what access a private secret grants.
     """
     agent_id, agent_name = _caller_identity(ctx)
