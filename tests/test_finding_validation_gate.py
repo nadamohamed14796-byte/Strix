@@ -88,7 +88,6 @@ def test_small_but_proven_platform_impact_remains_reportable() -> None:
     assert reason is None
 
 
-
 def test_blocked_candidate_surfaces_note_persistence_failure(monkeypatch) -> None:
     monkeypatch.setattr(notes_tools, "_notes_path", None)
     monkeypatch.setattr(notes_tools, "_notes_storage", {})
@@ -115,10 +114,7 @@ def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
             "api_key": api_fixture,
             "credential_type": "private",
             "credential_access_proven": False,
-            "evidence": (
-                f"Authorization: Bearer {bearer_fixture}; "
-                f"also found {github_fixture}"
-            ),
+            "evidence": (f"Authorization: Bearer {bearer_fixture}; also found {github_fixture}"),
             "nested": [{"client_secret": api_fixture}],
         }
     )
@@ -189,7 +185,6 @@ def test_missing_gate_classification_fails_closed() -> None:
     assert reason is not None
 
 
-
 def test_xss_reflection_without_execution_is_not_reportable() -> None:
     status, reason = _xss_validation_gate(
         title="Reflected XSS",
@@ -239,7 +234,6 @@ def test_xss_does_not_require_xss_evidence_for_non_xss_findings() -> None:
     )
     assert status is None
     assert reason is None
-
 
 
 def test_xss_without_exact_verified_payload_is_not_reportable() -> None:
