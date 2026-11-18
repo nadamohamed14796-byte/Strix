@@ -119,3 +119,18 @@ jobs:
           /tmp/strix-smoke/bin/strix --help >/dev/null
       - name: Vertex AI and Bedrock dependencies install with the wheel
         run: /tmp/strix-smoke/bin/python -c "import google.auth.transport.requests, boto3"
+
+  pytest-diagnostic:
+    name: pytest diagnostic (3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: '3.12'
+      - name: Capture the first 20 test failures with tracebacks
+        continue-on-error: true
+        run: uv run --frozen pytest -q --tb=short --maxfail=20
