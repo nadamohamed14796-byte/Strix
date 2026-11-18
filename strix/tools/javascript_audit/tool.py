@@ -3,6 +3,7 @@
 The ledger tracks discovered assets and their audit disposition. It does not
 fetch or execute assets; workers perform analysis and record evidence here.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,7 +24,7 @@ _VALID_STATUSES = {"discovered", "analyzed", "failed", "skipped"}
 
 def _ledger_path() -> Path | None:
     try:
-        from strix.report.state import get_global_report_state
+        from strix.report.state import get_global_report_state  # noqa: PLC0415
 
         state = get_global_report_state()
         if state is None:
@@ -42,7 +43,7 @@ def _load(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"JavaScript audit ledger is unreadable: {exc}") from exc
     if not isinstance(raw, dict) or not isinstance(raw.get("assets"), dict):
-        raise RuntimeError("JavaScript audit ledger has an invalid structure")
+        raise TypeError("JavaScript audit ledger has an invalid structure")
     return raw
 
 
@@ -126,7 +127,7 @@ def _record_asset(
 
 
 @function_tool(timeout=30)
-async def record_javascript_asset(
+async def record_javascript_asset(  # noqa: PLR0911
     asset_url: str,
     status: Literal["discovered", "analyzed", "failed", "skipped"] = "discovered",
     notes: str = "",
