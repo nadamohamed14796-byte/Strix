@@ -112,21 +112,21 @@ def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
 
     sanitized = _redact_candidate_secrets(
         {
-            "api_key": raw_api_key,
+            "api_key": api_fixture,
             "credential_type": "private",
             "credential_access_proven": False,
             "evidence": (
-                f"Authorization: Bearer {raw_bearer}; "
-                f"also found {raw_github_token}"
+                f"Authorization: Bearer {bearer_fixture}; "
+                f"also found {github_fixture}"
             ),
-            "nested": [{"client_secret": raw_api_key}],
+            "nested": [{"client_secret": api_fixture}],
         }
     )
     serialized = str(sanitized)
 
-    assert raw_api_key not in serialized
-    assert raw_bearer not in serialized
-    assert raw_github_token not in serialized
+    assert api_fixture not in serialized
+    assert bearer_fixture not in serialized
+    assert github_fixture not in serialized
     assert "[REDACTED sha256:" in serialized
     assert sanitized["credential_type"] == "private"
     assert sanitized["credential_access_proven"] is False
@@ -161,7 +161,7 @@ def test_preserved_candidate_note_redacts_secret_on_disk(monkeypatch, tmp_path) 
     result = _preserve_validation_candidate(
         "Unverified API key",
         {
-            "api_key": raw_secret,
+            "api_key": credential_fixture,
             "credential_type": "private",
             "evidence": "Key was found in app.js",
         },
@@ -171,7 +171,7 @@ def test_preserved_candidate_note_redacts_secret_on_disk(monkeypatch, tmp_path) 
 
     persisted = (tmp_path / "notes.json").read_text(encoding="utf-8")
     assert result["success"] is True
-    assert raw_secret not in persisted
+    assert credential_fixture not in persisted
     assert "[REDACTED sha256:" in persisted
     assert '"credential_type": "private"' in persisted
 
@@ -203,8 +203,6 @@ def test_xss_reflection_without_execution_is_not_reportable() -> None:
 
 
 def test_xss_requires_source_encoding_sink_browser_and_affected_page_evidence() -> None:
-    from strix.tools.reporting.tool import _xss_validation_gate
-
     status, _reason = _xss_validation_gate(
         title="Cross-site scripting",
         description="Untrusted input reaches an HTML sink.",
@@ -232,8 +230,6 @@ def test_xss_requires_source_encoding_sink_browser_and_affected_page_evidence() 
 
 
 def test_xss_does_not_require_xss_evidence_for_non_xss_findings() -> None:
-    from strix.tools.reporting.tool import _xss_validation_gate
-
     status, reason = _xss_validation_gate(
         title="Broken access control",
         description="Unauthorized record access.",
@@ -247,8 +243,6 @@ def test_xss_does_not_require_xss_evidence_for_non_xss_findings() -> None:
 
 
 def test_xss_without_exact_verified_payload_is_not_reportable() -> None:
-    from strix.tools.reporting.tool import _xss_validation_gate
-
     evidence = {
         "source_reviewed": True,
         "source_location": "app/routes.py:42",
