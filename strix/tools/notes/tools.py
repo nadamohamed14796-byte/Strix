@@ -240,8 +240,7 @@ def _create_note_impl(  # noqa: PLR0911
                 return {
                     "success": False,
                     "error": (
-                        "Note could not be saved to disk; the in-memory change "
-                        "was rolled back."
+                        "Note could not be saved to disk; the in-memory change was rolled back."
                     ),
                     "note_id": None,
                 }
