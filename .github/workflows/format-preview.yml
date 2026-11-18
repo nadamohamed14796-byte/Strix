@@ -1,0 +1,50 @@
+name: Temporary Ruff format preview
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/format-preview.yml
+
+permissions:
+  contents: read
+
+jobs:
+  format-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - name: Format files with the repository-pinned Ruff
+        run: |
+          uv run --frozen ruff format \
+            strix/tools/finish/tool.py \
+            strix/tools/javascript_audit/tool.py \
+            strix/tools/notes/tools.py \
+            strix/tools/reporting/tool.py \
+            tests/test_finding_validation_gate.py \
+            tests/test_javascript_audit_ledger.py \
+            tests/test_reporting_tool.py
+      - name: Emit formatted UTF-8 source for repository update
+        run: |
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+
+          paths = (
+              "strix/tools/finish/tool.py",
+              "strix/tools/javascript_audit/tool.py",
+              "strix/tools/notes/tools.py",
+              "strix/tools/reporting/tool.py",
+              "tests/test_finding_validation_gate.py",
+              "tests/test_javascript_audit_ledger.py",
+              "tests/test_reporting_tool.py",
+          )
+          for name in paths:
+              encoded = base64.b64encode(Path(name).read_bytes()).decode("ascii")
+              print(f"FORMAT_FILE::{name}::{encoded}")
+          PY
