@@ -98,7 +98,6 @@ def _persist() -> bool:
                 tmp.flush()
                 tmp_path = Path(tmp.name)
             tmp_path.replace(path)
-        return True
     except Exception:
         logger.exception("todos persist to %s failed", path)
         if tmp_path is not None:
@@ -107,6 +106,8 @@ def _persist() -> bool:
             except OSError:
                 logger.warning("could not remove temporary todos file %s", tmp_path)
         return False
+    else:
+        return True
 
 
 def _agent_id_from(ctx: RunContextWrapper) -> str:
@@ -356,7 +357,13 @@ async def create_todo(ctx: RunContextWrapper, todos: str) -> str:
 
     if not _persist():
         return json.dumps(
-            {"success": False, "error": "Todos changed in memory but could not be saved to disk; retry after checking state-directory permissions and storage."},
+            {
+                "success": False,
+                "error": (
+                    "Todos changed in memory but could not be saved to disk; retry after "
+                    "checking state-directory permissions and storage."
+                ),
+            },
             ensure_ascii=False,
             default=str,
         )
@@ -510,7 +517,10 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
     if errors:
         response["errors"] = errors
     if not persistence_ok:
-        response["persistence_error"] = "Todo changes are in memory but were not saved to disk; retry after checking state-directory permissions and storage."
+        response["persistence_error"] = (
+            "Todo changes are in memory but were not saved to disk; retry after "
+            "checking state-directory permissions and storage."
+        )
     return json.dumps(response, ensure_ascii=False, default=str)
 
 
