@@ -63,9 +63,7 @@ def _do_finish(
         from strix.tools.javascript_audit.tool import javascript_audit_status
 
         audit = javascript_audit_status(report_state.get_run_dir())
-        if audit["initialized"] and (
-            not audit["inventory_complete"] or audit["pending"]
-        ):
+        if audit["initialized"] and (not audit["inventory_complete"] or audit["pending"]):
             pending_preview = audit["pending"][:20]
             return {
                 "success": False,
