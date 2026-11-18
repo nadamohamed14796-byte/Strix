@@ -48,6 +48,7 @@ def test_cvss_calculation_does_not_fabricate_high_severity(
             }
         )
 
+
 async def test_vulnerability_report_fails_when_report_state_is_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
