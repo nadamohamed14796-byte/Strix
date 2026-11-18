@@ -121,9 +121,6 @@ def test_finish_scan_blocks_initialized_inventory_with_pending_assets(tmp_path, 
 
 
 def test_finish_scan_allows_no_js_ledger_and_closed_inventory(tmp_path, monkeypatch):
-    import strix.report.state as report_state
-    from strix.tools.finish.tool import _do_finish
-
     persisted = {}
     state = SimpleNamespace(
         get_run_dir=lambda: tmp_path,
