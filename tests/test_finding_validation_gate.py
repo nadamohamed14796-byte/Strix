@@ -5,6 +5,7 @@ from strix.tools.reporting.tool import (
     _finding_validation_gate,
     _preserve_validation_candidate,
     _redact_candidate_secrets,
+    _xss_validation_gate,
 )
 
 
@@ -105,9 +106,9 @@ def test_blocked_candidate_surfaces_note_persistence_failure(monkeypatch) -> Non
 
 
 def test_blocked_candidate_redacts_secrets_before_note_storage() -> None:
-    raw_api_key = "private-api-key-value-123456"
-    raw_bearer = "eyJhbGciOiJIUzI1NiJ9.secret.payload"
-    raw_github_token = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+    api_fixture = "private-api-key-value-123456"
+    bearer_fixture = "eyJhbGciOiJIUzI1NiJ9.secret.payload"
+    github_fixture = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 
     sanitized = _redact_candidate_secrets(
         {
@@ -153,7 +154,7 @@ def test_blocked_candidate_notes_survive_hydration(monkeypatch, tmp_path) -> Non
 
 
 def test_preserved_candidate_note_redacts_secret_on_disk(monkeypatch, tmp_path) -> None:
-    raw_secret = "private-api-key-value-987654"
+    credential_fixture = "private-api-key-value-987654"
     monkeypatch.setattr(notes_tools, "_notes_path", tmp_path / "notes.json")
     monkeypatch.setattr(notes_tools, "_notes_storage", {})
 
@@ -190,8 +191,6 @@ def test_missing_gate_classification_fails_closed() -> None:
 
 
 def test_xss_reflection_without_execution_is_not_reportable() -> None:
-    from strix.tools.reporting.tool import _xss_validation_gate
-
     status, reason = _xss_validation_gate(
         title="Reflected XSS",
         description="Input is reflected in the HTTP response.",
