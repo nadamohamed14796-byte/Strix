@@ -560,7 +560,10 @@ def _mark(*, agent_id: str, todo_ids: str, new_status: str) -> str:
     if errors:
         response["errors"] = errors
     if not persistence_ok:
-        response["persistence_error"] = "Todo changes are in memory but were not saved to disk; retry after checking state-directory permissions and storage."
+        response["persistence_error"] = (
+            "Todo changes are in memory but were not saved to disk; retry after "
+            "checking state-directory permissions and storage."
+        )
     return json.dumps(response, ensure_ascii=False, default=str)
 
 
@@ -634,5 +637,8 @@ async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
     if errors:
         response["errors"] = errors
     if not persistence_ok:
-        response["persistence_error"] = "Todo changes are in memory but were not saved to disk; retry after checking state-directory permissions and storage."
+        response["persistence_error"] = (
+            "Todo changes are in memory but were not saved to disk; retry after "
+            "checking state-directory permissions and storage."
+        )
     return json.dumps(response, ensure_ascii=False, default=str)
