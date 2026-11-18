@@ -210,7 +210,7 @@ def _merge_discovered_assets(
 
 @function_tool(timeout=60)
 async def record_javascript_assets(
-    asset_urls: list[str],
+    asset_urls: list[Any],
     source: str = "crawler",
 ) -> str:
     """Bulk-import JavaScript URLs from crawler output or recursive reference discovery.
