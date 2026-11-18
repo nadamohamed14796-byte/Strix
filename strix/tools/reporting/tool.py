@@ -1126,9 +1126,9 @@ async def _do_create(
         if report_state is None:
             logger.warning("No global report state; vulnerability report not persisted")
             return {
-                "success": True,
-                "message": f"Vulnerability report '{title}' created (not persisted)",
-                "warning": "Report could not be persisted - report state unavailable",
+                "success": False,
+                "error": "Vulnerability report was not created: report state unavailable",
+                "persisted": False,
             }
 
         from strix.report.dedupe import check_duplicate
