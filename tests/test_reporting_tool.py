@@ -64,7 +64,9 @@ async def test_vulnerability_report_fails_when_report_state_is_unavailable(
         remediation_steps="Enforce object-level authorization before returning the profile.",
         evidence="The response contains the other user's restricted profile fields.",
         assumptions="The attacker has a valid standard-user account.",
-        counterevidence="The same request was denied when the object belonged to a protected tenant.",
+        counterevidence=(
+            "The same request was denied when the object belonged to a protected tenant."
+        ),
         confidence="high",
         severity_change_conditions="A confirmed tenant-boundary bypass would raise severity.",
         fix_effort="medium",
