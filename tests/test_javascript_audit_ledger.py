@@ -243,9 +243,8 @@ def test_new_single_asset_reopens_discovery_inventory():
 
     assert data["inventory_complete"] is False
 
-def test_failed_ledger_write_preserves_previous_file_and_cleans_temp(
-    tmp_path, monkeypatch
-):
+
+def test_failed_ledger_write_preserves_previous_file_and_cleans_temp(tmp_path, monkeypatch):
     path = tmp_path / "javascript_audit.json"
     path.write_text("previous-state", encoding="utf-8")
 
@@ -259,4 +258,3 @@ def test_failed_ledger_write_preserves_previous_file_and_cleans_temp(
 
     assert path.read_text(encoding="utf-8") == "previous-state"
     assert list(tmp_path.glob(".javascript_audit.json.*.tmp")) == []
-
