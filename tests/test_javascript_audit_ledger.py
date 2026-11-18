@@ -4,6 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
+import strix.report.state as report_state
+from strix.tools.finish.tool import _do_finish
 from strix.tools.javascript_audit.tool import (
     _merge_discovered_assets,
     _record_asset,
@@ -81,9 +83,6 @@ def test_bulk_import_has_no_scan_wide_asset_ceiling():
 
 
 def test_finish_scan_blocks_initialized_inventory_with_pending_assets(tmp_path, monkeypatch):
-    import strix.report.state as report_state
-    from strix.tools.finish.tool import _do_finish
-
     _save(
         tmp_path / "javascript_audit.json",
         {
