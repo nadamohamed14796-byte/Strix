@@ -106,7 +106,6 @@ def _persist() -> bool:
                 tmp.flush()
                 tmp_path = Path(tmp.name)
             tmp_path.replace(path)
-        return True
     except Exception:
         logger.exception("notes persist to %s failed", path)
         if tmp_path is not None:
@@ -115,6 +114,9 @@ def _persist() -> bool:
             except OSError:
                 logger.warning("could not remove temporary notes file %s", tmp_path)
         return False
+    else:
+        return True
+
 
 def _filter_notes(
     category: str | None = None,
@@ -185,7 +187,7 @@ def _to_note_listing_entry(
     return _mark_authorship(entry, note, caller_agent_id)
 
 
-def _create_note_impl(
+def _create_note_impl(  # noqa: PLR0911
     title: str,
     content: str,
     category: str = "general",
@@ -237,7 +239,10 @@ def _create_note_impl(
                 _notes_storage.pop(note_id, None)
                 return {
                     "success": False,
-                    "error": "Note could not be saved to disk; the in-memory change was rolled back.",
+                    "error": (
+                        "Note could not be saved to disk; the in-memory change "
+                        "was rolled back."
+                    ),
                     "note_id": None,
                 }
             return {
@@ -332,7 +337,10 @@ def _update_note_impl(
                 return {
                     "success": False,
                     "note_id": note_id,
-                    "error": "Note update could not be saved to disk; the previous in-memory version was restored.",
+                    "error": (
+                        "Note update could not be saved to disk; the previous "
+                        "in-memory version was restored."
+                    ),
                 }
             return {
                 "success": True,
@@ -358,7 +366,10 @@ def _delete_note_impl(note_id: str) -> dict[str, Any]:
                 return {
                     "success": False,
                     "note_id": note_id,
-                    "error": "Note could not be deleted durably because saving failed; the in-memory note was restored.",
+                    "error": (
+                        "Note could not be deleted durably because saving failed; "
+                        "the in-memory note was restored."
+                    ),
                 }
             return {
                 "success": True,
