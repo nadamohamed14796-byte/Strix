@@ -155,7 +155,6 @@ def _calculate_cvss(breakdown: dict[str, str]) -> tuple[float, str, str]:
     return score, severity, vector
 
 
-
 _VALID_GATE_IMPACT_TYPES = frozenset({"person", "platform", "credential", "recon", "other"})
 _VALID_GATE_CREDENTIAL_TYPES = frozenset({"none", "public_client", "private"})
 
@@ -200,7 +199,6 @@ def _finding_validation_gate(  # noqa: PLR0911
             ),
         )
     return None, None
-
 
 
 _XSS_INDICATORS = re.compile(
@@ -345,8 +343,7 @@ def _preserve_validation_candidate(
         return {
             "success": False,
             "error": (
-                "Gate blocked report and note persistence failed: "
-                + str(saved.get("error"))
+                "Gate blocked report and note persistence failed: " + str(saved.get("error"))
             ),
         }
     return {
@@ -1751,11 +1748,14 @@ async def create_vulnerability_report(
         http_exchange_ids=http_exchange_ids,
         fix_verification=fix_verification,
         fix_pr_body=fix_pr_body,
-        impact_type=impact_type, impact_proven=impact_proven,
-        chain_complete=chain_complete, credential_type=credential_type,
+        impact_type=impact_type,
+        impact_proven=impact_proven,
+        chain_complete=chain_complete,
+        credential_type=credential_type,
         credential_access_proven=credential_access_proven,
         xss_validation=xss_validation,
-        agent_id=agent_id, agent_name=agent_name,
+        agent_id=agent_id,
+        agent_name=agent_name,
     )
     return json.dumps(_with_warning(result, http_exchange_warning), ensure_ascii=False, default=str)
 
@@ -2676,10 +2676,13 @@ async def create_dependency_report(
         fix_verification=fix_verification,
         contextual_cvss_breakdown=contextual_cvss_breakdown,
         contextual_cvss_reasoning=contextual_cvss_reasoning,
-        impact_type=impact_type, impact_proven=impact_proven,
-        chain_complete=chain_complete, credential_type=credential_type,
+        impact_type=impact_type,
+        impact_proven=impact_proven,
+        chain_complete=chain_complete,
+        credential_type=credential_type,
         credential_access_proven=credential_access_proven,
-        agent_id=agent_id, agent_name=agent_name,
+        agent_id=agent_id,
+        agent_name=agent_name,
     )
     return json.dumps(result, ensure_ascii=False, default=str)
 
