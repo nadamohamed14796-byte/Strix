@@ -93,8 +93,8 @@ async def test_create_report_persists_new_fields(report_state: ReportState) -> N
         cve=None,
         cwe="CWE-79",
         code_locations=None,
-        fix_pr_body="## Fix\nEncode output.",,
-        validation_answers=_VALIDATION_ANSWERS
+        fix_pr_body="## Fix\nEncode output.",
+        validation_answers=_VALIDATION_ANSWERS,
     )
     assert result["success"] is True
     report = report_state.vulnerability_reports[0]
@@ -125,8 +125,8 @@ async def test_create_report_requires_evidence_and_assumptions(
         method=None,
         cve=None,
         cwe=None,
-        code_locations=None,,
-        validation_answers=_VALIDATION_ANSWERS
+        code_locations=None,
+        validation_answers=_VALIDATION_ANSWERS,
     )
     assert result["success"] is False
     joined = " ".join(result["errors"])
@@ -154,6 +154,7 @@ async def test_create_report_rejects_invalid_fix_effort(report_state: ReportStat
         cve=None,
         cwe=None,
         code_locations=None,
+        validation_answers=_VALIDATION_ANSWERS,
     )
     assert result["success"] is False
     assert any("fix_effort" in e for e in result["errors"])
