@@ -1,10 +1,46 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
 from strix.core.agents import AgentCoordinator
+from strix.core.hooks import BudgetPausedError, ReportUsageHooks
+
+
+
+def test_pause_policy_blocks_the_next_model_call_at_the_budget_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    coordinator = AgentCoordinator()
+    hooks = ReportUsageHooks(model="test-model", max_budget_usd=5.0, budget_policy="pause")
+
+    class _ReportState:
+        @staticmethod
+        def get_total_llm_cost() -> float:
+            return 5.25
+
+    monkeypatch.setattr("strix.core.hooks.get_global_report_state", lambda: _ReportState())
+
+    with pytest.raises(BudgetPausedError) as raised:
+        hooks._pause_if_limited(SimpleNamespace(context={"coordinator": coordinator}))
+
+    assert raised.value.resume_epoch == coordinator.resume_epoch
+    assert raised.value.operator_pause is False
+
+
+def test_operator_pause_is_checked_before_any_new_model_call() -> None:
+    coordinator = AgentCoordinator()
+    hooks = ReportUsageHooks(model="test-model", budget_policy="pause")
+    coordinator._operator_paused = True
+    coordinator._budget_paused = True
+
+    with pytest.raises(BudgetPausedError) as raised:
+        hooks._pause_if_operator_paused(SimpleNamespace(context={"coordinator": coordinator}))
+
+    assert raised.value.operator_pause is True
+    assert raised.value.resume_epoch == coordinator.resume_epoch
 
 
 @pytest.mark.asyncio
