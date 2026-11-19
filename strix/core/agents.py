@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 Status = Literal["running", "waiting", "completed", "stopped", "crashed", "failed", "budget_paused"]
+BudgetPolicy = Literal["stop", "pause"]
 TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "stopped", "crashed", "failed"})
 ScanPhase = Literal["recon", "testing"]
 
@@ -67,6 +68,8 @@ class AgentCoordinator:
         self._lock = asyncio.Lock()
         self._snapshot_path: Path | None = None
         self.is_shutting_down = False
+        self.root_finish_tool = "finish_scan"
+        self._budget_policy: BudgetPolicy = "pause"
         self._budget_stopped = False
         self._reserve_stopped = False
         self._budget_paused = False
@@ -310,6 +313,15 @@ class AgentCoordinator:
     def budget_paused(self) -> bool:
         return self._budget_paused
 
+    @property
+    def budget_policy(self) -> BudgetPolicy:
+        return self._budget_policy
+
+    def set_budget_policy(self, policy: BudgetPolicy) -> None:
+        if policy not in ("stop", "pause"):
+            raise ValueError(f"unknown budget policy: {policy!r}")
+        self._budget_policy = policy
+
     def set_budget_extender(self, extend: Callable[[], None]) -> None:
         self._extend_budget = extend
 
@@ -340,6 +352,20 @@ class AgentCoordinator:
                         ),
                     },
                 )
+
+    async def wait_for_budget_resume(self, agent_id: str, *, parked_epoch: int) -> None:
+        """Wait while this agent remains parked at the interactive budget limit."""
+        del parked_epoch  # This coordinator uses the legacy message-driven resume path.
+        while True:
+            async with self._lock:
+                runtime = self.runtimes.setdefault(agent_id, AgentRuntime())
+                if self._budget_stopped or not self._budget_paused:
+                    return
+                if self.statuses.get(agent_id) != "budget_paused":
+                    return
+                wake = runtime.wake
+                wake.clear()
+            await wake.wait()
 
     async def reset_budget_stops(
         self,
