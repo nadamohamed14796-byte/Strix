@@ -215,6 +215,7 @@ def test_image_support_follows_the_catalog(monkeypatch: pytest.MonkeyPatch) -> N
     assert model_supports_images("litellm/openai/acme-vision") is True
     assert model_supports_images("acme-unknown-model") is True
 
+
 def test_model_tool_call_diagnostic_log_does_not_log_arguments(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
