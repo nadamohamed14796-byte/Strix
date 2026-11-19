@@ -56,6 +56,7 @@ __all__ = [
     "recomputed_budget_flags",
 ]
 
+
 def subagent_finish_tool(context: dict[str, Any]) -> str:
     """Return the lifecycle tool a child must use to report completion."""
     return str(context.get(FINISH_TOOL_KEY) or "agent_finish")
