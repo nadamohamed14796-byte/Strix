@@ -14,12 +14,19 @@ from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 from strix.config import loader
 from strix.report import dedupe
 from strix.report.state import ReportState, get_global_report_state, set_global_report_state
-from strix.tools.reporting.tool import _do_create
+from strix.tools.reporting.tool import _VALIDATION_QUESTIONS, _do_create
 
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
+
+
+def _validation_answers() -> dict[str, dict[str, str]]:
+    return {
+        question: {"passed": True, "evidence": f"Verified test evidence for {question}"}
+        for question in _VALIDATION_QUESTIONS
+    }
 
 
 @pytest.fixture
@@ -100,6 +107,7 @@ async def _file_finding() -> dict[str, Any]:
         chain_complete=True,
         credential_type="none",
         credential_access_proven=False,
+        validation_answers=_validation_answers(),
     )
 
 
