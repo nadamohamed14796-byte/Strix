@@ -508,7 +508,7 @@ async def create_agent(  # noqa: PLR0911 - each validation failure returns a pre
     task: str,
     inherit_context: bool = True,
     skills: list[str] | None = None,
-    phase: Literal["recon", "testing"] | None = None,
+    phase: Literal["testing"] | None = None,
     target_ids: list[str] | None = None,
 ) -> str:
     """Spawn a specialist child agent to run in parallel.
@@ -533,12 +533,12 @@ async def create_agent(  # noqa: PLR0911 - each validation failure returns a pre
     - Match the ``name`` to the focus (``XSS Specialist``,
       ``SQLi Validator``, ``Auth Specialist``).
 
-    **When to spawn vs do it yourself:**
+    **Delegation rule:**
 
-    - Spawn when the subtask is large, parallelizable, or needs
-      different specialization than what you're already doing.
-    - Don't spawn for trivial one-shot probes — just run the tool
-      yourself.
+    - Root agents delegate all target-touching reconnaissance and testing to
+      specialized children; they do not send test payloads themselves.
+    - Child agents may perform bounded checks within their assigned task, and
+      may create nested specialists when a distinct responsibility warrants it.
 
     Args:
         name: Human-readable child name (used in graph views and
@@ -601,20 +601,6 @@ async def create_agent(  # noqa: PLR0911 - each validation failure returns a pre
             ensure_ascii=False,
             default=str,
         )
-    if (
-        coordinator.target_ledger
-        and caller_phase == "recon"
-        and (parent_id not in coordinator.parent_of or coordinator.parent_of[parent_id] is not None)
-    ):
-        return json.dumps(
-            {
-                "success": False,
-                "error": "Recon batches are root-owned; Recon workers cannot delegate",
-            },
-            ensure_ascii=False,
-            default=str,
-        )
-
     skill_list = list(skills or [])
     skill_error = validate_requested_skills(skill_list)
     if skill_error:
