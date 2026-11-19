@@ -1020,7 +1020,7 @@ def _do_delete(
     }
 
 
-async def _do_create(  # noqa: PLR0911, PLR0912
+async def _do_create(  # noqa: PLR0911
     *,
     title: str,
     description: str,
