@@ -1,6 +1,6 @@
-import json
-
 """Tests for the mandatory finding reportability gate."""
+
+import json
 
 from strix.tools.notes import tools as notes_tools
 from strix.tools.reporting.tool import (
