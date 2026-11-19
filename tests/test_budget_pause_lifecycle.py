@@ -78,6 +78,20 @@ async def test_operator_pause_is_distinct_and_cleared_on_resume() -> None:
 
 
 @pytest.mark.asyncio
+async def test_operator_pause_survives_coordinator_snapshot_restore() -> None:
+    original = AgentCoordinator()
+    await original.register("root", "root", parent_id=None)
+    await original.pause_budget()
+
+    snapshot = await original.snapshot()
+    restored = AgentCoordinator()
+    await restored.restore(snapshot)
+
+    assert restored.operator_paused is True
+    assert restored.budget_paused is True
+
+
+@pytest.mark.asyncio
 async def test_resume_budget_can_replace_the_limit() -> None:
     coordinator = AgentCoordinator()
     limits = [10.0]
