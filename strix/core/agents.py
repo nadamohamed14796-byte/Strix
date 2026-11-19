@@ -53,7 +53,7 @@ class AgentCoordinator:
 
     def __init__(self) -> None:
         self.statuses: dict[str, Status] = {}
-        self.scan_phase: ScanPhase = "recon"
+        self.scan_phase: ScanPhase = "testing"
         self.target_ledger: dict[str, dict[str, Any]] = {}
         self._target_ledger_initialized = False
         self.parent_of: dict[str, str | None] = {}
@@ -472,10 +472,6 @@ class AgentCoordinator:
             if len(normalized_target_ids) != len(target_ids or []):
                 raise ValueError("A child task cannot contain duplicate target IDs")
             if parent_id is not None and self.target_ledger:
-                if assigned_phase == "recon" and (
-                    parent_id not in self.parent_of or self.parent_of[parent_id] is not None
-                ):
-                    raise ValueError("Recon batches are root-owned; Recon workers cannot delegate")
                 if not normalized_target_ids:
                     raise ValueError(
                         "Child tasks must declare target_ids when the scan has a target ledger"
@@ -483,17 +479,6 @@ class AgentCoordinator:
                 unknown = sorted(set(normalized_target_ids) - set(self.target_ledger))
                 if unknown:
                     raise ValueError(f"Child task references unknown target IDs: {unknown}")
-                if assigned_phase == "testing":
-                    blocked = [
-                        target_id
-                        for target_id in normalized_target_ids
-                        if self.target_ledger[target_id].get("status") != "recon_complete"
-                    ]
-                    if blocked:
-                        raise ValueError(
-                            "Testing cannot be assigned to targets without completed Recon: "
-                            f"{blocked}"
-                        )
                 if assigned_phase == "recon":
                     for target_id in normalized_target_ids:
                         entry = self.target_ledger[target_id]
