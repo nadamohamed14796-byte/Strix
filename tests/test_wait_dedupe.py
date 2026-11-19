@@ -41,6 +41,7 @@ def _fast_wait(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 async def _context() -> dict[str, Any]:
     coordinator = AgentCoordinator()
     await coordinator.register("root", "strix", parent_id=None)
+    await coordinator.register("child", "recon", parent_id="root")
     return {"agent_id": "root", "coordinator": coordinator}
 
 
