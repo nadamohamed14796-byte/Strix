@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from strix.config import ContextSettings, load_settings
 from strix.llm import context_budget
