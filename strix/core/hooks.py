@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from agents.lifecycle import RunHooks
 
+from strix.core.agents import BudgetPolicy, coordinator_from_context
 from strix.report.state import get_global_report_state
 
 
@@ -53,11 +54,12 @@ def recomputed_budget_flags(
     max_budget_usd: float | None,
     *,
     interactive: bool,
+    budget_policy: BudgetPolicy = "stop",
 ) -> tuple[bool, bool]:
     """Return the (budget_stopped, reserve_stopped) flags a resumed scan should carry."""
     if max_budget_usd is None:
         return False, False
-    if interactive:
+    if interactive or budget_policy == "pause":
         return False, False
     budget_stopped = cost >= max_budget_usd
     reserve_stopped = cost >= max_budget_usd * _SUBAGENT_BUDGET_RESERVE
@@ -128,6 +130,7 @@ class ReportUsageHooks(RunHooks[dict[str, Any]]):
         max_budget_usd: float | None = None,
         max_turns: int | None = None,
         interactive: bool = False,
+        budget_policy: BudgetPolicy = "stop",
     ) -> None:
         if max_budget_usd is not None and (
             not math.isfinite(max_budget_usd) or max_budget_usd <= 0
@@ -140,6 +143,16 @@ class ReportUsageHooks(RunHooks[dict[str, Any]]):
         self._budget_increment = max_budget_usd
         self._max_turns = max_turns
         self._interactive = interactive
+        if budget_policy not in ("stop", "pause"):
+            raise ValueError(f"unknown budget_policy: {budget_policy!r}")
+        self._budget_policy = budget_policy
+
+    def set_max_budget_usd(self, max_budget_usd: float | None) -> None:
+        if max_budget_usd is not None and (
+            not math.isfinite(max_budget_usd) or max_budget_usd <= 0
+        ):
+            raise ValueError("max_budget_usd must be a finite number greater than 0")
+        self._max_budget_usd = max_budget_usd
 
     def extend_budget(self) -> None:
         if self._max_budget_usd is None or self._budget_increment is None:
@@ -153,12 +166,42 @@ class ReportUsageHooks(RunHooks[dict[str, Any]]):
         system_prompt: str | None,  # noqa: ARG002
         input_items: list[TResponseInputItem],
     ) -> None:
+        self._pause_if_operator_paused(context)
+        if self._budget_policy == "pause":
+            self._pause_if_limited(context)
         context.context[LLM_TURN_KEY] = int(context.context.get(LLM_TURN_KEY, 0)) + 1
         try:
             self._maybe_warn_turns(context, input_items)
             self._maybe_warn_budget(context, input_items)
         except Exception:
             logger.exception("budget/turn warning injection failed")
+
+    def _pause_if_operator_paused(self, context: RunContextWrapper[dict[str, Any]]) -> None:
+        coordinator = coordinator_from_context(context.context)
+        if coordinator is not None and coordinator.operator_paused:
+            raise BudgetPausedError(
+                "scan paused; waiting for the operator to resume",
+                resume_epoch=coordinator.resume_epoch,
+                operator_pause=True,
+            )
+
+    def _pause_if_limited(self, context: RunContextWrapper[dict[str, Any]]) -> None:
+        coordinator = coordinator_from_context(context.context)
+        epoch = coordinator.resume_epoch if coordinator is not None else 0
+        if coordinator is not None and coordinator.budget_paused:
+            raise BudgetPausedError("scan paused; waiting for the operator to resume", resume_epoch=epoch)
+        if self._max_budget_usd is None or self._budget_policy == "pause":
+            return
+        report_state = get_global_report_state()
+        if report_state is None:
+            return
+        cost = report_state.get_total_llm_cost()
+        if cost >= self._max_budget_usd:
+            raise BudgetPausedError(
+                f"Scan budget of ${self._max_budget_usd:.2f} reached (spent ${cost:.4f}); "
+                "pausing until the operator raises the limit",
+                resume_epoch=epoch,
+            )
 
     def _maybe_warn_turns(
         self,
@@ -256,6 +299,9 @@ class ReportUsageHooks(RunHooks[dict[str, Any]]):
             )
         except Exception:
             logger.exception("failed to record SDK usage for agent %s", agent_id)
+
+        if self._budget_policy == "pause":
+            return
 
         if self._max_budget_usd is not None:
             cost = report_state.get_total_llm_cost()
