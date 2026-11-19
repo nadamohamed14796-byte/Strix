@@ -540,8 +540,8 @@ async def create_agent(
         inherit_context: Default ``True``. The child receives the
             parent's input history as background; only set ``False``
             when starting a clean-slate task.
-        skills: Exact identifiers from ``available_skills``; use category-qualified names when needed.
-            Max 5; prefer 1-3.
+        skills: Exact identifiers from ``available_skills``.
+            Prefer category-qualified names when needed. Max 5; prefer 1-3.
     """
     inner = _ctx(ctx)
     coordinator = coordinator_from_context(inner)
