@@ -109,48 +109,23 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
     diff_scope = scan_config.get("diff_scope") or {}
     user_instructions = scan_config.get("user_instructions", "") or ""
 
-    sections: dict[str, list[str]] = {
-        "Repositories": [],
-        "Local Codebases": [],
-        "URLs": [],
-        "IP Addresses": [],
-        "API Specifications": [],
-    }
-
-    for target in targets:
-        ttype = target.get("type")
-        details = target.get("details") or {}
-        workspace_subdir = details.get("workspace_subdir")
-        workspace_path = f"/workspace/{workspace_subdir}" if workspace_subdir else "/workspace"
-
-        if ttype == "repository":
-            url = details.get("target_repo", "")
-            cloned = details.get("cloned_repo_path")
-            sections["Repositories"].append(
-                f"- {url} (available at: {workspace_path})" if cloned else f"- {url}",
-            )
-        elif ttype == "local_code":
-            path = details.get("target_path", "unknown")
-            sections["Local Codebases"].append(
-                f"- {path} (available at: {workspace_path}; "
-                "this is the user's real directory, mounted live and writable — "
-                ".git/.agents/.codex are read-only)"
-            )
-        elif ttype == "web_application":
-            sections["URLs"].append(f"- {details.get('target_url', '')}")
-        elif ttype == "ip_address":
-            sections["IP Addresses"].append(f"- {details.get('target_ip', '')}")
-        elif ttype == "api_spec":
-            sections["API Specifications"].extend(_render_api_spec(details))
-
     parts: list[str] = []
-    for label, items in sections.items():
-        if items:
-            parts.append(f"\n\n{label}:")
-            parts.extend(items)
+    if targets:
+        # The full authorized target list is already present in the system
+        # scope block. Repeating it in the task doubles tokens and can crowd
+        # the actual scope out of a large multi-target run.
+        parts.append(
+            "\n\nAuthorized Target Set: Assess every asset in the "
+            "AUTHORIZED TARGETS section of your system instructions. That "
+            "canonical list is complete and authoritative; preserve every "
+            "target and its exact value. Do not reconstruct or narrow scope "
+            "from this task message."
+        )
+        for target in targets:
+            if target.get("type") == "api_spec":
+                parts.extend(_render_api_spec(target.get("details") or {}))
 
-    # A workspace mount is a directory to work in, not an asset to test. It is
-    # listed apart from the targets so it never reads as scope.
+    # A workspace mount is a directory to work in, not an asset to test.
     if workspace_mount := scan_config.get("workspace_mount") or "":
         subdir = scan_config.get("workspace_subdir") or ""
         workspace_path = f"/workspace/{subdir}" if subdir else "/workspace"
@@ -160,21 +135,17 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
             "this is the user's real directory, mounted live and writable — "
             ".git/.agents/.codex are read-only)"
         )
-        parts.append(
-            "- No scan target was set. This directory is where you work, not a "
-            "target to assess: the instructions below are the only source of "
-            "truth for what to do."
-        )
-    # Whether anything above gave the run a scope. Workspace files never do, so
-    # this is read before they are listed.
-    has_scope = bool(parts)
+        if not targets:
+            parts.append(
+                "- No scan target was set. This directory is where you work, not a "
+                "target to assess: the instructions below are the only source of "
+                "truth for what to do."
+            )
 
+    has_scope = bool(targets) or bool(scan_config.get("workspace_mount"))
     parts.extend(_render_workspace_files(scan_config))
 
     if not has_scope and user_instructions:
-        # Neither a target nor a directory, but there is an instruction: the user
-        # declined the mount, so the instruction is all there is. Say so, or the
-        # agent goes looking for a scope that was never given.
         parts.append(
             "\n\nNo scan target and no working directory were provided. The "
             "instructions below are the only source of truth for what to do; "
@@ -187,7 +158,6 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
     if user_instructions:
         task = f"{task}\n\nSpecial instructions: {user_instructions}"
     return task
-
 
 def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
     authorized: list[dict[str, str]] = []
