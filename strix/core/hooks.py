@@ -190,7 +190,7 @@ class ReportUsageHooks(RunHooks[dict[str, Any]]):
         epoch = coordinator.resume_epoch if coordinator is not None else 0
         if coordinator is not None and coordinator.budget_paused:
             raise BudgetPausedError("scan paused; waiting for the operator to resume", resume_epoch=epoch)
-        if self._max_budget_usd is None or self._budget_policy == "pause":
+        if self._max_budget_usd is None:
             return
         report_state = get_global_report_state()
         if report_state is None:
@@ -232,7 +232,7 @@ class ReportUsageHooks(RunHooks[dict[str, Any]]):
         context: RunContextWrapper[dict[str, Any]],
         input_items: list[TResponseInputItem],
     ) -> None:
-        if self._max_budget_usd is None:
+        if self._max_budget_usd is None or self._budget_policy == "pause":
             return
         report_state = get_global_report_state()
         if report_state is None:
