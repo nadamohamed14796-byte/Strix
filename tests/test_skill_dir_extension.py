@@ -285,6 +285,15 @@ def test_new_skill_files_load() -> None:
         assert loaded.get(key), f"{name} failed to load"
 
 
+def test_javascript_analysis_spawn_skill_is_category_qualified() -> None:
+    # The reconnaissance and analysis catalogs intentionally share this basename.
+    assert validate_requested_skills(["javascript_attack_surface"]) is not None
+    assert validate_requested_skills(["analysis/javascript_attack_surface"]) is None
+
+    prompt = render_system_prompt(scan_mode="standard", is_root=True)
+    assert "analysis/javascript_attack_surface" in prompt
+
+
 def test_javascript_asset_analysis_skill_loads_and_requires_complete_coverage() -> None:
     loaded = load_skills(["analysis/javascript_attack_surface"])
     body = loaded.get("javascript_attack_surface", "")
