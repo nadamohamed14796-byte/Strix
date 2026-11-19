@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+from types import SimpleNamespace
+
 import litellm
 import pytest
 from agents.extensions.models.litellm_model import LitellmModel
@@ -211,3 +214,23 @@ def test_image_support_follows_the_catalog(monkeypatch: pytest.MonkeyPatch) -> N
     assert model_supports_images("acme-text") is False
     assert model_supports_images("litellm/openai/acme-vision") is True
     assert model_supports_images("acme-unknown-model") is True
+
+
+
+def test_model_tool_call_diagnostic_log_does_not_log_arguments(caplog: pytest.LogCaptureFixture) -> None:
+    response = SimpleNamespace(
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                name="create_agent",
+                arguments='{"task":"sensitive task text"}',
+            )
+        ]
+    )
+    available_tools = [SimpleNamespace(name="create_agent")]
+
+    with caplog.at_level(logging.INFO, logger="strix.config.models"):
+        models._log_response_tool_calls(response, available_tools)
+
+    assert "create_agent" in caplog.text
+    assert "sensitive task text" not in caplog.text
