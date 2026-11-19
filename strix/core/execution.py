@@ -418,31 +418,40 @@ async def spawn_child_agent(
         skills=skills,
     )
 
-    await _start_child_runner(
-        parent_ctx=parent_ctx,
-        coordinator=coordinator,
-        agents_db_path=agents_db_path,
-        sessions_to_close=sessions_to_close,
-        run_config=run_config,
-        max_turns=max_turns,
-        interactive=interactive,
-        child_agent=child_agent,
-        child_id=child_id,
-        name=name,
-        parent_id=parent_id,
-        task=task,
-        skills=skills,
-        initial_input=child_initial_input(
-            name=name,
+    try:
+        await _start_child_runner(
+            parent_ctx=parent_ctx,
+            coordinator=coordinator,
+            agents_db_path=agents_db_path,
+            sessions_to_close=sessions_to_close,
+            run_config=run_config,
+            max_turns=max_turns,
+            interactive=interactive,
+            child_agent=child_agent,
             child_id=child_id,
+            name=name,
             parent_id=parent_id,
             task=task,
-            parent_history=parent_history,
-            finish_tool=subagent_finish_tool(parent_ctx),
-        ),
-        event_sink=event_sink,
-        hooks=hooks,
-    )
+            skills=skills,
+            initial_input=child_initial_input(
+                name=name,
+                child_id=child_id,
+                parent_id=parent_id,
+                task=task,
+                parent_history=parent_history,
+                finish_tool=subagent_finish_tool(parent_ctx),
+            ),
+            event_sink=event_sink,
+            hooks=hooks,
+        )
+    except Exception as exc:
+        # Registration happens before session creation and task scheduling. If
+        # startup fails, do not leave a phantom ACTIVE child that strands the
+        # parent in wait_for_agents / finish_scan.
+        logger.exception("spawn_child_agent: failed to start child %s (%s)", name, child_id)
+        await coordinator.set_status(child_id, "failed", error=str(exc))
+        await notify_parent_on_terminal(coordinator, child_id, "failed")
+        raise
 
     return {
         "success": True,
