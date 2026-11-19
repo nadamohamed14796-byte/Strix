@@ -11,7 +11,7 @@ from strix.core.agents import AgentCoordinator
 async def test_resume_epoch_prevents_lost_budget_resume() -> None:
     coordinator = AgentCoordinator()
     await coordinator.register("root", "root", parent_id=None)
-    await coordinator.pause_for_budget("root")
+    await coordinator.park_for_budget("root")
     parked_epoch = coordinator.resume_epoch
 
     waiter = asyncio.create_task(
