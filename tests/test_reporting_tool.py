@@ -129,3 +129,37 @@ async def test_vulnerability_report_fails_when_report_state_is_unavailable(
     assert result["persisted"] is False
     assert "report state unavailable" in result["error"].lower()
     assert "report_id" not in result
+
+
+async def test_do_create_preserves_candidate_when_ten_answers_are_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def preserve(title: str, candidate: dict, status: str, reason: str) -> dict:
+        return {"success": True, "action": "preserved_not_reported", "status": status}
+
+    monkeypatch.setattr("strix.tools.reporting.tool._preserve_validation_candidate", preserve)
+    result = await _do_create(
+        title="Unverified access-control candidate",
+        description="A candidate response differs from the baseline.",
+        impact="No impact has been confirmed yet.",
+        target="https://example.test",
+        technical_analysis="The response requires further validation.",
+        poc_description="Repeat the baseline and candidate requests.",
+        poc_script_code="print('candidate only')",
+        remediation_steps="Validate the authorization control.",
+        evidence="A response difference was observed.",
+        assumptions="The behavior may depend on account ownership.",
+        counterevidence="The response difference may be expected.",
+        confidence="low",
+        severity_change_conditions="A confirmed cross-account read would change severity.",
+        fix_effort="low",
+        cvss_breakdown={},
+        endpoint=None,
+        method=None,
+        cve=None,
+        cwe=None,
+        code_locations=None,
+        validation_answers=None,
+    )
+    assert result["action"] == "preserved_not_reported"
+    assert result["status"] == "NEEDS_VALIDATION"
