@@ -133,4 +133,4 @@ jobs:
           python-version: '3.12'
       - name: Capture the first 20 test failures with tracebacks
         continue-on-error: true
-        run: uv run --frozen pytest -q --tb=short --maxfail=20
+        run: uv run --frozen pytest -vv --tb=short --maxfail=20
