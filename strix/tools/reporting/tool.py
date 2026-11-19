@@ -332,6 +332,7 @@ def _preserve_validation_candidate(
             content=json.dumps(payload, ensure_ascii=False, default=str, indent=2),
             category="findings",
             tags=["finding-validation", status.lower()],
+            require_persistence=True,
         )
     except Exception as exc:
         logger.exception("Could not preserve blocked finding")
