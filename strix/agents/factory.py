@@ -667,7 +667,26 @@ def make_child_factory(
     without the graph tool knowing about runner internals.
     """
 
-    def _factory(*, name: str, skills: list[str]) -> SandboxAgent[Any]:
+    def _factory(
+        *,
+        name: str,
+        skills: list[str],
+        target_ids: list[str] | None = None,
+    ) -> SandboxAgent[Any]:
+        # A child only needs the verified scope it was assigned. Passing the
+        # entire multi-target ledger to every child duplicates large prompts
+        # and makes target context easier to truncate.
+        child_context = dict(system_prompt_context or {})
+        assigned = set(target_ids or [])
+        if assigned:
+            for key in ("authorized_targets", "target_ledger"):
+                entries = child_context.get(key)
+                if isinstance(entries, list):
+                    child_context[key] = [
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict) and entry.get("target_id") in assigned
+                    ]
         return build_strix_agent(
             name=name,
             skills=skills,
@@ -676,7 +695,7 @@ def make_child_factory(
             is_whitebox=is_whitebox,
             interactive=interactive,
             chat_completions_tools=chat_completions_tools,
-            system_prompt_context=system_prompt_context,
+            system_prompt_context=child_context,
         )
 
     return _factory
