@@ -194,6 +194,7 @@ def _create_note_impl(  # noqa: PLR0911
     tags: list[str] | None = None,
     agent_id: str | None = None,
     agent_name: str | None = None,
+    require_persistence: bool = False,
 ) -> dict[str, Any]:
     with _notes_lock:
         try:
@@ -235,14 +236,22 @@ def _create_note_impl(  # noqa: PLR0911
         except (ValueError, TypeError) as e:
             return {"success": False, "error": f"Failed to create note: {e}", "note_id": None}
         else:
-            if not _persist():
-                _notes_storage.pop(note_id, None)
+            if _notes_path is None:
+                if require_persistence:
+                    logger.error("required note persistence requested before a state directory was configured")
+                    return {
+                        "success": False,
+                        "error": "Note persistence failed: no state directory was configured.",
+                        "note_id": note_id,
+                    }
+            elif not _persist():
                 return {
                     "success": False,
                     "error": (
-                        "Note could not be saved to disk; the in-memory change was rolled back."
+                        "Note persistence failed; the note remains available in memory "
+                        "for this scan but was not saved to disk."
                     ),
-                    "note_id": None,
+                    "note_id": note_id,
                 }
             return {
                 "success": True,
