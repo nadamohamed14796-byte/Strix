@@ -386,11 +386,11 @@ async def _with_timeouts(
     started = time.monotonic()
     while True:
         limits: list[tuple[float, float, str]] = []
-        if first_event is not None:
+        if first_event is not None and first_event > 0:
             limits.append((first_event, first_event, "stream_first_event_timeout"))
-        elif idle is not None:
+        elif idle is not None and idle > 0:
             limits.append((idle, idle, "stream_idle_timeout"))
-        if total is not None:
+        if total is not None and total > 0:
             left = max(0.0, started + total - time.monotonic())
             limits.append((left, total, "stream_total_timeout"))
         try:
