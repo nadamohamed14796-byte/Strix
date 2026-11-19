@@ -70,10 +70,13 @@ class AgentCoordinator:
         self._snapshot_path: Path | None = None
         self.is_shutting_down = False
         self.root_finish_tool = "finish_scan"
-        self._budget_policy: BudgetPolicy = "pause"
+        self._budget_policy: BudgetPolicy = "stop"
         self._budget_stopped = False
         self._reserve_stopped = False
         self._budget_paused = False
+        self._operator_paused = False
+        self._resume_epoch = 0
+        self._set_budget_limit: Callable[[float | None], None] | None = None
         self._extend_budget: Callable[[], None] | None = None
         self._target_append_handler: (
             Callable[[list[dict[str, Any]]], Awaitable[dict[str, Any]]] | None
@@ -315,6 +318,14 @@ class AgentCoordinator:
         return self._budget_paused
 
     @property
+    def operator_paused(self) -> bool:
+        return self._operator_paused
+
+    @property
+    def resume_epoch(self) -> int:
+        return self._resume_epoch
+
+    @property
     def budget_policy(self) -> BudgetPolicy:
         return self._budget_policy
 
@@ -326,16 +337,41 @@ class AgentCoordinator:
     def set_budget_extender(self, extend: Callable[[], None]) -> None:
         self._extend_budget = extend
 
+    def set_budget_limit_setter(self, setter: Callable[[float | None], None]) -> None:
+        self._set_budget_limit = setter
+
+    async def pause_budget(self) -> None:
+        """Pause the scan before each agent's next LLM call."""
+        async with self._lock:
+            self._budget_paused = True
+            self._operator_paused = True
+        await self._maybe_snapshot()
+
     async def pause_for_budget(self, agent_id: str) -> None:
         async with self._lock:
             self._budget_paused = True
         await self.set_status(agent_id, "budget_paused")
+
+    async def resume_budget(self, *, max_budget_usd: float | None = None) -> list[str]:
+        """Lift an operator/budget pause and wake agents parked before an LLM call."""
+        if max_budget_usd is not None and self._set_budget_limit is not None:
+            self._set_budget_limit(max_budget_usd)
+        async with self._lock:
+            self._budget_paused = False
+            self._operator_paused = False
+            self._resume_epoch += 1
+            woken = [aid for aid, status in self.statuses.items() if status == "budget_paused"]
+            for aid in woken:
+                self.runtimes.setdefault(aid, AgentRuntime()).wake.set()
+        await self._maybe_snapshot()
+        return woken
 
     async def resume_from_budget_pause(self, *, exclude: str | None = None) -> None:
         async with self._lock:
             if not self._budget_paused:
                 return
             self._budget_paused = False
+            self._resume_epoch += 1
             paused = [aid for aid, status in self.statuses.items() if status == "budget_paused"]
         if self._extend_budget is not None:
             self._extend_budget()
@@ -355,18 +391,22 @@ class AgentCoordinator:
                 )
 
     async def wait_for_budget_resume(self, agent_id: str, *, parked_epoch: int) -> None:
-        """Wait while this agent remains parked at the interactive budget limit."""
-        del parked_epoch  # This coordinator uses the legacy message-driven resume path.
+        """Wait for a resume newer than the epoch at which this agent parked."""
         while True:
             async with self._lock:
                 runtime = self.runtimes.setdefault(agent_id, AgentRuntime())
-                if self._budget_stopped or not self._budget_paused:
+                if self._budget_stopped or self.statuses.get(agent_id) != "budget_paused":
                     return
-                if self.statuses.get(agent_id) != "budget_paused":
-                    return
+                if self._resume_epoch != parked_epoch:
+                    self.statuses[agent_id] = "running"
+                    self.errors.pop(agent_id, None)
+                    self.wait_kinds.pop(agent_id, None)
+                    runtime.wake.set()
+                    break
                 wake = runtime.wake
                 wake.clear()
             await wake.wait()
+        await self._maybe_snapshot()
 
     async def reset_budget_stops(
         self,
@@ -379,7 +419,7 @@ class AgentCoordinator:
             self._budget_stopped = budget_stopped
             self._reserve_stopped = reserve_stopped
             if not budget_paused:
-                self._budget_paused = False
+                self._budget_paused = self._operator_paused
                 for aid, status in self.statuses.items():
                     if status == "budget_paused":
                         self.statuses[aid] = "waiting"
