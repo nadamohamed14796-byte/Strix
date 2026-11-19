@@ -9,6 +9,7 @@ from strix.skills import (
     get_all_skill_names,
     get_available_skills,
     load_skills,
+    normalize_skill_names,
     register_skill_dir,
     registered_skill_dirs,
     skill_search_dirs,
@@ -52,8 +53,6 @@ def _write_root_skill(root: Path, name: str, body: str) -> None:
 def test_normalize_skill_names_accepts_provider_encoded_arrays(
     value: list[str] | str | None, expected: list[str]
 ) -> None:
-    from strix.skills import normalize_skill_names
-
     assert normalize_skill_names(value) == expected
 
 
