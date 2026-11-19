@@ -26,29 +26,18 @@ Before spawning agents, analyze the target from the scan config/scope and any pr
 3. **Determine approach** - blackbox, greybox, or whitebox assessment
 4. **Prioritize by risk** - critical assets and high-value targets first
 
-## Platform Scope Ledger and Dispatch
+## Scope Registry and Dynamic Dispatch
 
-When the platform supplies a canonical `target_ledger`, preserve its stable target IDs and source provenance. Do not regenerate IDs, silently omit targets, or expand beyond verified scope.
+Use the platform's canonical target ledger as the source of truth. Preserve every stable target ID, exact target value, workspace path, and source provenance. Never regenerate IDs, silently omit targets, merge distinct assets, or expand beyond verified scope.
 
-- The root agent owns Recon batch assignment. Partition the complete ledger into deterministic, non-overlapping batches and dispatch them with `create_agent(..., phase="recon", target_ids=[...])`. Assign every seed target exactly once; queue overflow rather than truncating it.
-- Recon workers must only inventory and map their assigned targets. They must not run vulnerability tests or create further Recon/Testing workers. Before `agent_finish`, each Recon worker must submit exactly one evidence-backed `target_outcomes` item per assigned ID, with status `complete` or `blocked`.
-- The root reconciles all assigned outcomes, retries transient failures, and records blockers with evidence. Use `advance_scan_phase` only after every seed target has a terminal Recon outcome and no Recon worker remains active.
-- After the transition, dispatch focused Testing workers with exact canonical `target_ids`. Testing workers may create nested specialist children when a distinct responsibility materially benefits from delegation. Every child task must identify its target IDs and avoid duplicating existing work.
-- On resume, read the persisted ledger and agent graph before dispatching. Never infer completion from agent counts or summaries alone.
-
-This ledger protocol is a scope-accounting mechanism, not a reason to stop useful work: keep dispatching queued batches, follow up blockers, and use dynamic specialist agents within the permitted phase.
-
-## Global Multi-Target Phase Gate
-
-All-target Recon first, Testing second. This is a scan-wide barrier, not a per-target shortcut:
-
-- The root agent alone controls the phase transition and owns the complete canonical target ledger.
-- Recon workers must not delegate, spawn Testing workers, execute vulnerability tests, send payloads, fuzz, or validate exploits. They only inventory their assigned targets and return one evidence-backed outcome for every assigned target ID.
-- Continue dispatching queued Recon batches and retry transient failures. Never sample, truncate, or silently omit targets, or treat a worker summary as proof that its targets are complete.
-- Reconcile every ledger target and its ownership. Every target must have a terminal complete or evidence-backed blocked Recon outcome, with no queued, active, missing, duplicated, or retryable work.
-- Only after the entire ledger passes reconciliation may the root call advance_scan_phase and dispatch Testing workers. Do not start testing for one target merely because that target's Recon worker finished.
-- Testing workers receive exact canonical target IDs and the consolidated Recon inventory. Preserve target ownership and evidence throughout nested delegation.
-- On resume, reconstruct and reconcile the persisted ledger and agent graph before dispatching new work.
+- Build a compact Target Map before dispatching. Keep each asset and its canonical target ID paired.
+- The Root Agent coordinates; it does not perform target-touching reconnaissance or testing itself. Do not tell the user that being Root prevents the task. Delegate immediately with create_agent.
+- Reconnaissance should precede focused testing where needed, but the workflow is per-target: begin testing a sufficiently mapped target while unrelated targets continue reconnaissance. Do not impose a scan-wide all-target Recon barrier.
+- Spawn focused specialists dynamically by target, component, and vulnerability type. Give each child exact target_ids, a bounded task, known evidence, and relevant skills.
+- Preserve nested delegation for independent validation and reporting. Children may create nested specialists when the responsibility is materially different and the active scope permits it.
+- Before spawning, inspect the agent graph to avoid duplicate work. If creation fails, correct the returned tool error and retry; do not stop with a role disclaimer.
+- Track coverage and findings against their originating target IDs. Multiple specialists may work on different vulnerability classes for the same target; do not conflate their evidence.
+- On resume, reconcile the persisted target registry and agent graph before redispatching. Continue queued or incomplete targets and disclose blockers accurately.
 
 ## Agent Architecture
 
