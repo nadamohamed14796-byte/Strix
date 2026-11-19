@@ -297,11 +297,7 @@ def _final_history(handler: type[_Gateway]) -> list[dict[str, Any]]:
     return messages
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("stream", [True, False], ids=["streamed", "non-streamed"])
-@pytest.mark.parametrize("scenario_name", list(SCENARIOS))
-@pytest.mark.parametrize("model", MODELS)
-async def test_tool_call_ids_are_repaired_on_every_route(
+async def _assert_tool_call_ids_repaired(
     request: pytest.FixtureRequest,
     monkeypatch: pytest.MonkeyPatch,
     model: str,
@@ -326,7 +322,7 @@ async def test_tool_call_ids_are_repaired_on_every_route(
             model,
             base_url,
             stream=stream,
-            parallel=any(len(t) > 1 for t in scenario.turns),
+            parallel=any(len(turn) > 1 for turn in scenario.turns),
         )
 
     assert result.final_output == "all done"
@@ -334,35 +330,75 @@ async def test_tool_call_ids_are_repaired_on_every_route(
     assert all(bool(body.get("stream")) is stream for body in handler.requests)
 
     history = _final_history(handler)
-    call_ids = [call["id"] for m in history for call in m.get("tool_calls") or []]
+    call_ids = [call["id"] for message in history for call in message.get("tool_calls") or []]
     assert len(call_ids) == scenario.calls
     assert all(isinstance(call_id, str) and call_id for call_id in call_ids)
     assert len(set(call_ids)) == len(call_ids)
 
-    outputs = {m["tool_call_id"]: m["content"] for m in history if m.get("role") == "tool"}
+    outputs = {
+        message["tool_call_id"]: message["content"]
+        for message in history
+        if message.get("role") == "tool"
+    }
     assert set(outputs) == set(call_ids)
 
     originals = {
-        turn * 10 + offset: call_id
-        for turn, ids in enumerate(scenario.turns)
+        turn_index * 10 + offset: call_id
+        for turn_index, ids in enumerate(scenario.turns)
         for offset, call_id in enumerate(ids)
     }
     assert sorted(ran) == sorted(originals)
 
-    # Each output still answers the call that produced it.
     id_by_n = {
         json.loads(call["function"]["arguments"])["n"]: call["id"]
-        for m in history
-        for call in m.get("tool_calls") or []
+        for message in history
+        for call in message.get("tool_calls") or []
     }
     assert {id_by_n[n]: f"did {n}" for n in originals} == outputs
 
-    # A usable id is kept the first time it appears; only blanks and repeats change.
     seen: set[str] = set()
     for n, original in sorted(originals.items()):
         if isinstance(original, str) and original and original not in seen:
             assert id_by_n[n] == original
             seen.add(original)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [True, False], ids=["streamed", "non-streamed"])
+@pytest.mark.parametrize("model", MODELS)
+async def test_tool_call_ids_are_repaired_on_every_route(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+    *,
+    stream: bool,
+) -> None:
+    # Every configured provider route exercises the guard in both transport modes.
+    await _assert_tool_call_ids_repaired(
+        request, monkeypatch, model, "empty-id", stream=stream
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [True, False], ids=["streamed", "non-streamed"])
+@pytest.mark.parametrize(
+    "model",
+    ["openai/gpt-5.4", "openrouter/z-ai/glm-5.3", "litellm/openai/gw-model"],
+)
+@pytest.mark.parametrize("scenario_name", list(SCENARIOS))
+async def test_all_tool_call_id_edge_scenarios_on_reference_routes(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+    scenario_name: str,
+    *,
+    stream: bool,
+) -> None:
+    # Exercise the full malformed/recycled/mixed-id matrix on each adapter family;
+    # every configured route still gets the empty-id smoke test above.
+    await _assert_tool_call_ids_repaired(
+        request, monkeypatch, model, scenario_name, stream=stream
+    )
 
 
 @pytest.mark.asyncio
