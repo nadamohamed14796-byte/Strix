@@ -28,6 +28,8 @@ LLM_TURN_KEY = "llm_turn"
 # ``run_strix_scan(subagent_turn_limits=...)``, and the limit it gives one sub-agent.
 SUBAGENT_TURN_LIMITS_KEY = "subagent_turn_limits"
 TURN_LIMIT_KEY = "turn_limit"
+# Name of the completion tool that a spawned child must call when done.
+FINISH_TOOL_KEY = "finish_tool"
 _TURN_LIMIT_WARN_BEFORE = 10
 _TURN_LIMIT_REPEAT = 5
 
@@ -42,6 +44,7 @@ _TURN_LIMIT_REPEAT = 5
 # scan), keeping its session, context and sandbox alive, and continues with that
 # same call when the operator raises the limit or resumes.
 __all__ = [
+    "FINISH_TOOL_KEY",
     "LLM_TURN_KEY",
     "SUBAGENT_TURN_LIMITS_KEY",
     "TURN_LIMIT_KEY",
@@ -52,6 +55,11 @@ __all__ = [
     "SubagentBudgetReservedError",
     "recomputed_budget_flags",
 ]
+
+def subagent_finish_tool(context: dict[str, Any]) -> str:
+    """Return the lifecycle tool a child must use to report completion."""
+    return str(context.get(FINISH_TOOL_KEY) or "agent_finish")
+
 
 _STAGE_LABELS: tuple[str, ...] = ("NOTICE", "URGENT", "CRITICAL")
 _TURN_WARN_BANDS: tuple[float, ...] = (0.70, 0.85, 0.95)
