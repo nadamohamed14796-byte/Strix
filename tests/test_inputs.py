@@ -199,9 +199,10 @@ def test_build_root_task_repository_target() -> None:
     }
     task = build_root_task(config)
 
-    assert "Repositories:" in task
-    assert "/workspace/repo" in task
-    assert "https://example.com/repo.git" in task
+    assert "AUTHORIZED TARGETS" in task
+    assert "https://example.com/repo.git" not in task
+    assert "/workspace/repo" not in task
+    assert build_scope_context(config)["authorized_targets"][0]["value"] == "https://example.com/repo.git"
 
 
 def test_build_root_task_web_application_with_instructions() -> None:
@@ -213,10 +214,31 @@ def test_build_root_task_web_application_with_instructions() -> None:
     }
     task = build_root_task(config)
 
-    assert "URLs:" in task
-    assert "https://app.example.com" in task
+    assert "AUTHORIZED TARGETS" in task
+    assert "https://app.example.com" not in task
     assert "Special instructions: Focus on auth." in task
+    assert build_scope_context(config)["authorized_targets"][0]["value"] == "https://app.example.com"
 
+
+def test_build_root_task_keeps_multi_target_scope_in_system_scope_block() -> None:
+    config = {
+        "targets": [
+            {"type": "web_application", "details": {"target_url": "https://one.example"}},
+            {"type": "web_application", "details": {"target_url": "https://two.example"}},
+            {"type": "ip_address", "details": {"target_ip": "192.0.2.10"}},
+        ],
+    }
+    task = build_root_task(config)
+    authorized = build_scope_context(config)["authorized_targets"]
+
+    assert "AUTHORIZED TARGETS" in task
+    assert len(authorized) == 3
+    assert [entry["value"] for entry in authorized] == [
+        "https://one.example",
+        "https://two.example",
+        "192.0.2.10",
+    ]
+    assert all(entry["value"] not in task for entry in authorized)
 
 def test_build_root_task_workspace_mount_is_not_a_target() -> None:
     """A target-less run gets a working directory, not an assessment scope."""
