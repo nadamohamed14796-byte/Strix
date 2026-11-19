@@ -159,6 +159,46 @@ _VALID_GATE_IMPACT_TYPES = frozenset({"person", "platform", "credential", "recon
 _VALID_GATE_CREDENTIAL_TYPES = frozenset({"none", "public_client", "private"})
 
 
+_VALIDATION_QUESTIONS = (
+    "in_scope",
+    "specific_weakness",
+    "attacker_controlled_input",
+    "security_boundary",
+    "baseline_compared",
+    "unauthorized_effect",
+    "impact_observed",
+    "poc_reproducible",
+    "attack_chain_complete",
+    "counterevidence_reviewed",
+)
+
+
+def _validate_ten_questions(
+    answers: dict[str, Any] | None,
+) -> tuple[str | None, str | None]:
+    """Require ten explicit YES answers, each backed by concrete evidence."""
+    if not isinstance(answers, dict):
+        return "NEEDS_VALIDATION", "The ten-question validation checklist was not supplied."
+    missing = [key for key in _VALIDATION_QUESTIONS if key not in answers]
+    failed: list[str] = []
+    for key in _VALIDATION_QUESTIONS:
+        answer = answers.get(key)
+        if not isinstance(answer, dict):
+            if key not in missing:
+                failed.append(key)
+            continue
+        if answer.get("passed") is not True or not str(answer.get("evidence") or "").strip():
+            failed.append(key)
+    if missing or failed:
+        details: list[str] = []
+        if missing:
+            details.append("missing: " + ", ".join(missing))
+        if failed:
+            details.append("not passed or missing evidence: " + ", ".join(failed))
+        return "NEEDS_VALIDATION", "Ten-question validation failed (" + "; ".join(details) + ")."
+    return None, None
+
+
 def _finding_validation_gate(  # noqa: PLR0911
     *,
     impact_type: str | None,
@@ -1012,16 +1052,21 @@ async def _do_create(  # noqa: PLR0911
     credential_type: str | None = None,
     credential_access_proven: bool | None = None,
     xss_validation: dict[str, Any] | None = None,
+    validation_answers: dict[str, Any] | None = None,
     agent_id: str | None = None,
     agent_name: str | None = None,
 ) -> dict[str, Any]:
-    gate_status, gate_reason = _finding_validation_gate(
-        impact_type=impact_type,
-        impact_proven=impact_proven,
-        chain_complete=chain_complete,
-        credential_type=credential_type,
-        credential_access_proven=credential_access_proven,
-    )
+    validation_status, validation_reason = _validate_ten_questions(validation_answers)
+    if validation_status:
+        gate_status, gate_reason = validation_status, validation_reason
+    else:
+        gate_status, gate_reason = _finding_validation_gate(
+            impact_type=impact_type,
+            impact_proven=impact_proven,
+            chain_complete=chain_complete,
+            credential_type=credential_type,
+            credential_access_proven=credential_access_proven,
+        )
     if not gate_status:
         xss_status, xss_reason = _xss_validation_gate(
             title=title,
@@ -1065,6 +1110,7 @@ async def _do_create(  # noqa: PLR0911
             "credential_type": credential_type,
             "credential_access_proven": credential_access_proven,
             "xss_validation": xss_validation,
+            "validation_answers": validation_answers,
         }
         return _preserve_validation_candidate(
             title, candidate, gate_status, gate_reason or "Validation gate blocked the report."
@@ -1282,6 +1328,7 @@ async def create_vulnerability_report(
     credential_type: str | None = None,
     credential_access_proven: bool | None = None,
     xss_validation: dict[str, Any] | None = None,
+    validation_answers: dict[str, Any] | None = None,
 ) -> str:
     """File a vulnerability report — one report per fully-verified finding.
 
@@ -1298,6 +1345,16 @@ async def create_vulnerability_report(
       dynamically PoC'd — a vulnerable dependency version pinned in a
       lockfile/manifest that matches a published advisory. File those
       with ``create_dependency_report`` instead, never with this tool.
+
+    **Mandatory ten-question reportability gate**:
+
+    Supply all ten validation_answers entries as objects containing
+    passed=true and non-empty evidence. Required keys:
+    in_scope, specific_weakness, attacker_controlled_input,
+    security_boundary, baseline_compared, unauthorized_effect,
+    impact_observed, poc_reproducible, attack_chain_complete,
+    and counterevidence_reviewed. Missing, failed, or unsupported answers
+    block filing and preserve the candidate as a findings note.
 
     **Reporting and severity gate**:
 
@@ -1755,6 +1812,7 @@ async def create_vulnerability_report(
         credential_type=credential_type,
         credential_access_proven=credential_access_proven,
         xss_validation=xss_validation,
+        validation_answers=validation_answers,
         agent_id=agent_id,
         agent_name=agent_name,
     )
