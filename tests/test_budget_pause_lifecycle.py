@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
 from strix.core.agents import AgentCoordinator
 from strix.core.hooks import BudgetPausedError, ReportUsageHooks
-
 
 
 def test_pause_policy_blocks_the_next_model_call_at_the_budget_limit(
