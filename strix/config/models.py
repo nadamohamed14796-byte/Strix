@@ -392,7 +392,7 @@ class _TurnGuardModel(Model):
             stream,
             idle=self._stream_idle_timeout,
             first_event=self._first_event_timeout,
-            total=self._stream_total_timeout,
+            total=self._total_timeout,
         ):
             if isinstance(event, ResponseCompletedEvent):
                 _log_response_tool_calls(event.response, tools)
