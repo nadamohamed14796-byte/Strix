@@ -3,8 +3,39 @@ from __future__ import annotations
 import pytest
 
 import strix.report.state as report_state
-from strix.tools.reporting.tool import _calculate_cvss, _do_create
+from strix.tools.reporting.tool import (
+    _VALIDATION_QUESTIONS,
+    _calculate_cvss,
+    _do_create,
+    _validate_ten_questions,
+)
 
+
+def _all_validation_answers() -> dict[str, dict[str, object]]:
+    return {
+        question: {"passed": True, "evidence": f"Verified evidence for {question}"}
+        for question in _VALIDATION_QUESTIONS
+    }
+
+
+def test_ten_question_gate_rejects_missing_answers() -> None:
+    status, reason = _validate_ten_questions(None)
+    assert status == "NEEDS_VALIDATION"
+    assert "not supplied" in (reason or "")
+
+
+def test_ten_question_gate_rejects_a_failed_or_unsupported_answer() -> None:
+    answers = _all_validation_answers()
+    answers["impact_observed"] = {"passed": True, "evidence": ""}
+    status, reason = _validate_ten_questions(answers)
+    assert status == "NEEDS_VALIDATION"
+    assert "impact_observed" in (reason or "")
+
+
+def test_ten_question_gate_accepts_ten_evidence_backed_yes_answers() -> None:
+    status, reason = _validate_ten_questions(_all_validation_answers())
+    assert status is None
+    assert reason is None
 
 def test_cvss_without_demonstrated_impact_is_informational() -> None:
     score, severity, vector = _calculate_cvss(
@@ -91,6 +122,7 @@ async def test_vulnerability_report_fails_when_report_state_is_unavailable(
         chain_complete=True,
         credential_type="none",
         credential_access_proven=False,
+        validation_answers=_all_validation_answers(),
     )
 
     assert result["success"] is False
