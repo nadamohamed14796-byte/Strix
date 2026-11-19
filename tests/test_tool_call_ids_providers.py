@@ -330,7 +330,11 @@ async def _assert_tool_call_ids_repaired(
     assert all(bool(body.get("stream")) is stream for body in handler.requests)
 
     history = _final_history(handler)
-    call_ids = [call["id"] for message in history for call in message.get("tool_calls") or []]
+    call_ids = [
+        call["id"]
+        for message in history
+        for call in message.get("tool_calls") or []
+    ]
     assert len(call_ids) == scenario.calls
     assert all(isinstance(call_id, str) and call_id for call_id in call_ids)
     assert len(set(call_ids)) == len(call_ids)
