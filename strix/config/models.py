@@ -393,6 +393,8 @@ async def _with_timeouts(
         if total is not None and total > 0:
             left = max(0.0, started + total - time.monotonic())
             limits.append((left, total, "stream_total_timeout"))
+        reason = "stream_timeout"
+        limit = 0.0
         try:
             if limits:
                 wait, limit, reason = min(limits, key=lambda item: item[0])
