@@ -266,11 +266,15 @@ class _TurnGuardModel(Model):
         inner: Model,
         *,
         max_tool_calls_per_turn: int = 0,
-        stream_idle_timeout: float = 0.0,
+        stream_idle_timeout: float | None = None,
+        first_event_timeout: float | None = None,
+        total_timeout: float | None = None,
     ) -> None:
         self._inner = inner
         self._max_tool_calls_per_turn = max_tool_calls_per_turn
         self._stream_idle_timeout = stream_idle_timeout
+        self._first_event_timeout = first_event_timeout
+        self._total_timeout = total_timeout
 
     def _limiter(self) -> TurnToolCallLimiter:
         return TurnToolCallLimiter(self._max_tool_calls_per_turn)
@@ -351,7 +355,12 @@ class _TurnGuardModel(Model):
             conversation_id=conversation_id,
             prompt=prompt,
         )
-        async for event in _with_idle_timeout(stream, self._stream_idle_timeout):
+        async for event in _with_timeouts(
+            stream,
+            idle=self._stream_idle_timeout,
+            first_event=self._first_event_timeout,
+            total=self._total_timeout,
+        ):
             guarded = _guard_event(event, rewriter, limiter)
             if guarded is not None:
                 yield guarded
@@ -364,25 +373,47 @@ async def _aclose(stream: AsyncIterator[TResponseStreamEvent]) -> None:
             await stream.aclose()
 
 
-async def _with_idle_timeout(
-    stream: AsyncIterator[TResponseStreamEvent], timeout: float
+async def _with_timeouts(
+    stream: AsyncIterator[TResponseStreamEvent],
+    *,
+    idle: float | None = None,
+    first_event: float | None = None,
+    total: float | None = None,
 ) -> AsyncIterator[TResponseStreamEvent]:
-    if timeout <= 0:
-        async for event in stream:
-            yield event
-        return
-
+    """Bound first response, gaps between events, and total stream duration."""
     iterator = stream.__aiter__()
+    started = time.monotonic()
     while True:
+        limits: list[tuple[float, float, str]] = []
+        if first_event is not None:
+            limits.append((first_event, first_event, "stream_first_event_timeout"))
+        elif idle is not None:
+            limits.append((idle, idle, "stream_idle_timeout"))
+        if total is not None:
+            left = max(0.0, started + total - time.monotonic())
+            limits.append((left, total, "stream_total_timeout"))
         try:
-            event = await asyncio.wait_for(iterator.__anext__(), timeout)
+            if limits:
+                wait, limit, reason = min(limits, key=lambda item: item[0])
+                event = await asyncio.wait_for(iterator.__anext__(), timeout=wait)
+            else:
+                event = await iterator.__anext__()
         except StopAsyncIteration:
             return
         except TimeoutError:
             await _aclose(stream)
-            message = f"model stream produced no event for {timeout:.0f}s"
+            message = f"model stream hit {reason} ({limit:.0f}s)" if limits else "model stream timed out"
             logger.warning("%s; abandoning the turn", message)
             raise TimeoutError(message) from None
+        first_event = None
+        yield event
+
+
+async def _with_idle_timeout(
+    stream: AsyncIterator[TResponseStreamEvent], timeout: float
+) -> AsyncIterator[TResponseStreamEvent]:
+    """Backward-compatible idle-only wrapper used by older integrations."""
+    async for event in _with_timeouts(stream, idle=timeout if timeout > 0 else None):
         yield event
 
 
@@ -471,7 +502,9 @@ class StrixProvider(MultiProvider):
     def get_model(self, model_name: str | None) -> Model:
         llm = load_settings().llm
         slug = codex.subscription_model(model_name)
-        idle_timeout = float(llm.stream_idle_timeout)
+        idle_timeout = float(llm.stream_idle_timeout) or None
+        first_event_timeout = float(llm.stream_first_event_timeout) or None
+        total_timeout = float(llm.stream_total_timeout) or None
         if slug:
             # The ChatGPT subscription backend is always streamed; it has no
             # non-streaming mode to fall back to, so LLM_DISABLE_STREAMING
@@ -488,11 +521,13 @@ class StrixProvider(MultiProvider):
                 # The wrapper emits its single event only once the whole request
                 # is done, so an idle gap is meaningless here; the request
                 # timeout bounds it instead.
-                idle_timeout = 0.0
+                idle_timeout = first_event_timeout = total_timeout = None
         return _TurnGuardModel(
             model,
             max_tool_calls_per_turn=llm.max_tool_calls_per_turn,
             stream_idle_timeout=idle_timeout,
+            first_event_timeout=first_event_timeout,
+            total_timeout=total_timeout,
         )
 
 
