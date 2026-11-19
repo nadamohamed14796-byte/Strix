@@ -795,7 +795,10 @@ async def _run_cycle(  # noqa: PLR0912, PLR0915
                 await coordinator.detach_stream(agent_id, stream)
         except BudgetPausedError as exc:
             logger.info("agent %s paused at the scan budget limit: %s", agent_id, exc)
-            await coordinator.pause_for_budget(agent_id)
+            if coordinator.budget_policy == "pause" or exc.operator_pause:
+                await coordinator.park_for_budget(agent_id)
+            else:
+                await coordinator.pause_for_budget(agent_id)
             raise
         except SubagentBudgetReservedError as exc:
             logger.info("sub-agent %s stopped at the budget reserve: %s", agent_id, exc)
