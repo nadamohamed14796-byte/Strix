@@ -16,7 +16,7 @@ from strix.core.agents import ACTIVE_STATUSES, Status, coordinator_from_context
 from strix.core.execution import notify_parent_on_terminal
 from strix.core.hooks import LLM_TURN_KEY
 from strix.report.state import get_global_report_state
-from strix.skills import validate_requested_skills
+from strix.skills import normalize_skill_names, validate_requested_skills
 
 
 logger = logging.getLogger(__name__)
@@ -491,13 +491,13 @@ async def wait_for_agents(  # noqa: PLR0911
     )
 
 
-@function_tool(timeout=120)
+@function_tool(timeout=120, strict_mode=False)
 async def create_agent(
     ctx: RunContextWrapper,
     name: str,
     task: str,
     inherit_context: bool = True,
-    skills: list[str] | None = None,
+    skills: list[str] | str | None = None,
 ) -> str:
     """Spawn a specialist child agent to run in parallel.
 
@@ -564,7 +564,7 @@ async def create_agent(
             default=str,
         )
 
-    skill_list = list(skills or [])
+    skill_list = normalize_skill_names(skills)
     skill_error = validate_requested_skills(skill_list)
     if skill_error:
         return json.dumps(
