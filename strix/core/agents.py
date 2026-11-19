@@ -340,6 +340,17 @@ class AgentCoordinator:
     def set_budget_limit_setter(self, setter: Callable[[float | None], None]) -> None:
         self._set_budget_limit = setter
 
+    async def park_for_budget(self, agent_id: str) -> bool:
+        """Park one running agent without changing the scan-wide pause flag."""
+        async with self._lock:
+            if self.statuses.get(agent_id) != "running":
+                return False
+            self.statuses[agent_id] = "budget_paused"
+            self.runtimes.setdefault(agent_id, AgentRuntime()).wake.set()
+        logger.info("agent.status %s=budget_paused", agent_id)
+        await self._maybe_snapshot()
+        return True
+
     async def pause_budget(self) -> None:
         """Pause the scan before each agent's next LLM call."""
         async with self._lock:
