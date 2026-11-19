@@ -161,6 +161,36 @@ async def test_create_report_rejects_invalid_fix_effort(report_state: ReportStat
     assert not report_state.vulnerability_reports
 
 
+async def test_create_report_without_ten_question_gate_is_preserved_not_reported(
+    report_state: ReportState,
+) -> None:
+    result = await _do_create(
+        title="Unvalidated candidate",
+        description="A candidate without completed validation.",
+        impact="Potential unauthorized access.",
+        target="https://app.example.com",
+        technical_analysis="A suspected authorization gap.",
+        poc_description="Attempt the action with a lower-privileged account.",
+        poc_script_code="GET /api/admin",
+        remediation_steps="Enforce server-side authorization.",
+        evidence="The candidate has not yet been validated.",
+        assumptions="Requires a lower-privileged account.",
+        fix_effort="low",
+        cvss_breakdown=_CVSS,
+        endpoint="/api/admin",
+        method="GET",
+        cve=None,
+        cwe=None,
+        code_locations=None,
+    )
+
+    assert result["success"] is True
+    assert result["action"] == "preserved_not_reported"
+    assert result["status"] == "NEEDS_VALIDATION"
+    assert "ten-question validation" in result["reason"].lower()
+    assert not report_state.vulnerability_reports
+
+
 async def test_dependency_report_sets_class_and_metadata(report_state: ReportState) -> None:
     result = await _do_create_dependency(
         title="CVE-2021-23337 in lodash 4.17.20",
