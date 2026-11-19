@@ -23,7 +23,7 @@ from openai import AsyncOpenAI
 
 from strix.config import loader
 from strix.config.loader import load_settings
-from strix.config.models import StrixProvider, _TurnGuardModel, _with_idle_timeout
+from strix.config.models import StrixProvider, _TurnGuardModel, _with_idle_timeout, _with_timeouts
 
 
 if TYPE_CHECKING:
@@ -131,7 +131,13 @@ async def test_events_keep_flowing_while_the_stream_is_alive() -> None:
 
 @pytest.fixture
 def _reset_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    for key in ("STRIX_LLM", "LLM_DISABLE_STREAMING", "LLM_STREAM_IDLE_TIMEOUT"):
+    for key in (
+        "STRIX_LLM",
+        "LLM_DISABLE_STREAMING",
+        "LLM_STREAM_IDLE_TIMEOUT",
+        "LLM_STREAM_FIRST_EVENT_TIMEOUT",
+        "LLM_STREAM_TOTAL_TIMEOUT",
+    ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(loader, "_cached", None)
     monkeypatch.setattr(loader, "_override", None)
@@ -151,11 +157,15 @@ def test_idle_timeout_is_configurable(
 ) -> None:
     monkeypatch.setattr("strix.config.models.MultiProvider.get_model", lambda *_: _DummyModel())
     monkeypatch.setenv("LLM_STREAM_IDLE_TIMEOUT", "45")
+    monkeypatch.setenv("LLM_STREAM_FIRST_EVENT_TIMEOUT", "30")
+    monkeypatch.setenv("LLM_STREAM_TOTAL_TIMEOUT", "400")
     load_settings()
 
     model = StrixProvider().get_model("openai/gpt-4o-mini")
     assert isinstance(model, _TurnGuardModel)
     assert model._stream_idle_timeout == 45
+    assert model._first_event_timeout == 30
+    assert model._total_timeout == 400
 
 
 def test_idle_timeout_is_off_without_streaming(
@@ -170,4 +180,21 @@ def test_idle_timeout_is_off_without_streaming(
 
     model = StrixProvider().get_model("openai/gpt-4o-mini")
     assert isinstance(model, _TurnGuardModel)
-    assert model._stream_idle_timeout == 0
+    assert model._stream_idle_timeout is model._first_event_timeout is model._total_timeout is None
+
+
+@pytest.mark.asyncio
+async def test_first_event_and_total_stream_timeouts() -> None:
+    async def _slow_start() -> AsyncIterator[Any]:
+        await asyncio.sleep(0.2)
+        yield "late"
+
+    async def _endless() -> AsyncIterator[Any]:
+        while True:
+            await asyncio.sleep(0.02)
+            yield "event"
+
+    with pytest.raises(TimeoutError, match="stream_first_event_timeout"):
+        [event async for event in _with_timeouts(_slow_start(), idle=1, first_event=0.02)]
+    with pytest.raises(TimeoutError, match="stream_total_timeout"):
+        [event async for event in _with_timeouts(_endless(), idle=1, total=0.08)]
