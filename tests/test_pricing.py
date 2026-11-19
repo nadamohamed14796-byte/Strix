@@ -49,13 +49,43 @@ def test_resolves_common_bare_model_names() -> None:
     resolve_litellm_model.cache_clear()
     assert resolve_litellm_model("deepseek-v4-flash") == "deepseek/deepseek-v4-flash"
     assert resolve_litellm_model("openai/deepseek-v4-flash") == "deepseek/deepseek-v4-flash"
-    # LiteLLM prices grok-4.5 identically under xai/, perplexity/xai/ and
-    # openrouter/x-ai/, so the resolver may return any of them; the contract
-    # is a provider-qualified name LiteLLM can price.
-    grok = resolve_litellm_model("grok-4.5")
-    assert grok is not None
-    assert grok.endswith("/grok-4.5")
-    assert grok in litellm.model_cost
+    # Exercise LiteLLM's provider-qualified fallback using a model that
+    # this locked LiteLLM release actually prices under one or more providers.
+    model_cost = litellm.model_cost
+    candidates = sorted(
+        {
+            key.rsplit("/", 1)[-1]
+            for key, entry in model_cost.items()
+            if "/" in key and isinstance(entry, dict)
+        }
+    )
+    fallback_name = next(
+        (
+            name
+            for name in candidates
+            if name not in model_cost
+            and (
+                len(matches := [key for key in model_cost if key.endswith(f"/{name}")]) == 1
+                or len(
+                    {
+                        (
+                            model_cost[key].get("input_cost_per_token"),
+                            model_cost[key].get("output_cost_per_token"),
+                        )
+                        for key in matches
+                        if isinstance(model_cost.get(key), dict)
+                    }
+                )
+                == 1
+            )
+        ),
+        None,
+    )
+    assert fallback_name is not None
+    qualified = resolve_litellm_model(fallback_name)
+    assert qualified is not None
+    assert qualified.endswith(f"/{fallback_name}")
+    assert qualified in model_cost
     # MiniMax-M3 is sold by several LiteLLM providers at different prices, so
     # the resolver must not guess from its bare name. A provider-qualified
     # model remains deterministic.
