@@ -124,6 +124,28 @@ async def test_create_report_persists_new_fields(report_state: ReportState) -> N
         cve=None,
         cwe="CWE-79",
         code_locations=None,
+        impact_type="person",
+        impact_proven=True,
+        chain_complete=True,
+        credential_type="none",
+        credential_access_proven=False,
+        xss_validation={
+            "source_reviewed": True,
+            "source_location": "app/routes.py:42",
+            "source_to_sink_trace": "query parameter -> template variable -> innerHTML",
+            "encoding_assessed": True,
+            "output_context": "HTML element context",
+            "encoding_assessment": "No context-appropriate output encoding",
+            "sink_reached": True,
+            "sink_location": "app/client.js:88",
+            "browser_execution_proven": True,
+            "rendered_payload_evidence": "Benign marker rendered as executable DOM content",
+            "browser_execution_evidence": "Browser observed the benign execution marker",
+            "verified_working_payload": "<img src=x onerror=console.log('strix-xss-proof')>",
+            "payload_delivery_context": "GET /search?q=...; reflected query parameter; text/html",
+            "payload_execution_result": "Console marker strix-xss-proof executed on /search",
+            "affected_pages": ["/search?q=test"],
+        },
         http_exchange_ids=["1042", "1042", "1088"],
         fix_pr_body="## Fix\nEncode output.",
     )
@@ -208,6 +230,11 @@ async def test_create_report_requires_evidence_and_assumptions(
         cve=None,
         cwe=None,
         code_locations=None,
+        impact_type="platform",
+        impact_proven=True,
+        chain_complete=True,
+        credential_type="none",
+        credential_access_proven=False,
     )
     assert result["success"] is False
     joined = " ".join(result["errors"])
@@ -238,6 +265,11 @@ async def test_create_report_rejects_invalid_fix_effort(report_state: ReportStat
         cve=None,
         cwe=None,
         code_locations=None,
+        impact_type="platform",
+        impact_proven=True,
+        chain_complete=True,
+        credential_type="none",
+        credential_access_proven=False,
     )
     assert result["success"] is False
     assert any("fix_effort" in e for e in result["errors"])
@@ -266,6 +298,11 @@ async def _create_with(report_state: ReportState, **overrides: object) -> dict[s
         "cve": None,
         "cwe": None,
         "code_locations": None,
+        "impact_type": "platform",
+        "impact_proven": True,
+        "chain_complete": True,
+        "credential_type": "none",
+        "credential_access_proven": False,
     }
     kwargs.update(overrides)
     assert report_state is not None
@@ -1509,6 +1546,11 @@ _CONFIRMED_KWARGS: dict[str, Any] = {
     "cve": "CVE-2025-55746",
     "cwe": "CWE-863",
     "code_locations": None,
+    "impact_type": "platform",
+    "impact_proven": True,
+    "chain_complete": True,
+    "credential_type": "none",
+    "credential_access_proven": False,
 }
 
 
