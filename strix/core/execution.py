@@ -362,7 +362,7 @@ async def spawn_child_agent(
         )
 
     child_id = uuid.uuid4().hex[:8]
-    child_agent = factory(name=name, skills=skills)
+    child_agent = factory(name=name, skills=skills, target_ids=target_ids)
     await coordinator.register(
         child_id,
         name,
@@ -461,7 +461,7 @@ async def respawn_subagents(
                 )
 
             child_skills = list(md.get("skills") or [])
-            child_agent = factory(name=name, skills=child_skills)
+            child_agent = factory(name=name, skills=child_skills, target_ids=md.get("target_ids"))
             await _start_child_runner(
                 parent_ctx=parent_ctx,
                 coordinator=coordinator,
