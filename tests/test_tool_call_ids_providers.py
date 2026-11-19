@@ -330,11 +330,7 @@ async def _assert_tool_call_ids_repaired(
     assert all(bool(body.get("stream")) is stream for body in handler.requests)
 
     history = _final_history(handler)
-    call_ids = [
-        call["id"]
-        for message in history
-        for call in message.get("tool_calls") or []
-    ]
+    call_ids = [call["id"] for message in history for call in message.get("tool_calls") or []]
     assert len(call_ids) == scenario.calls
     assert all(isinstance(call_id, str) and call_id for call_id in call_ids)
     assert len(set(call_ids)) == len(call_ids)
@@ -378,9 +374,7 @@ async def test_tool_call_ids_are_repaired_on_every_route(
     stream: bool,
 ) -> None:
     # Every configured provider route exercises the guard in both transport modes.
-    await _assert_tool_call_ids_repaired(
-        request, monkeypatch, model, "empty-id", stream=stream
-    )
+    await _assert_tool_call_ids_repaired(request, monkeypatch, model, "empty-id", stream=stream)
 
 
 @pytest.mark.asyncio
@@ -400,9 +394,7 @@ async def test_all_tool_call_id_edge_scenarios_on_reference_routes(
 ) -> None:
     # Exercise the full malformed/recycled/mixed-id matrix on each adapter family;
     # every configured route still gets the empty-id smoke test above.
-    await _assert_tool_call_ids_repaired(
-        request, monkeypatch, model, scenario_name, stream=stream
-    )
+    await _assert_tool_call_ids_repaired(request, monkeypatch, model, scenario_name, stream=stream)
 
 
 @pytest.mark.asyncio
