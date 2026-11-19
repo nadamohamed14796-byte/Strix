@@ -25,7 +25,7 @@ from strix.config.models import (
     uses_chat_completions_tool_schema,
 )
 from strix.config.settings import DEFAULT_MAX_TURNS
-from strix.core.agents import AgentCoordinator
+from strix.core.agents import AgentCoordinator, BudgetPolicy
 from strix.core.execution import (
     respawn_subagents,
     run_agent_loop,
@@ -120,6 +120,7 @@ async def run_strix_scan(
     interactive: bool = False,
     max_turns: int = DEFAULT_MAX_TURNS,
     max_budget_usd: float | None = None,
+    budget_policy: BudgetPolicy = "stop",
     model: str | None = None,
     cleanup_on_exit: bool = True,
     event_sink: StreamEventSink | None = None,
@@ -206,6 +207,7 @@ async def run_strix_scan(
                 report_state.get_total_llm_cost(),
                 max_budget_usd,
                 interactive=interactive,
+                budget_policy=budget_policy,
             )
             await coordinator.reset_budget_stops(
                 budget_stopped=budget_stopped,
@@ -279,14 +281,16 @@ async def run_strix_scan(
             # error: hand it back as a tool result so the agent can correct itself.
             tool_not_found_behavior="return_error_to_model",
         )
+        coordinator.set_budget_policy(budget_policy)
         hooks = ReportUsageHooks(
             model=resolved_model,
             max_budget_usd=max_budget_usd,
             max_turns=max_turns,
             interactive=interactive,
+            budget_policy=budget_policy,
         )
-        if interactive:
-            coordinator.set_budget_extender(hooks.extend_budget)
+        coordinator.set_budget_extender(hooks.extend_budget)
+        coordinator.set_budget_limit_setter(hooks.set_max_budget_usd)
 
         scope_context = build_scope_context(scan_config)
         await coordinator.initialize_target_ledger(
