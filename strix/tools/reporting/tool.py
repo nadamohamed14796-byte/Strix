@@ -183,11 +183,14 @@ def _preserve_unverified_candidate(
             content=json.dumps(payload, ensure_ascii=False, default=str, indent=2),
             category="findings", tags=["finding-validation", status.lower()],
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception("Could not preserve unverified candidate")
         return {"success": False, "error": f"Candidate blocked; note persistence failed: {exc}"}
     if not saved.get("success"):
-        return {"success": False, "error": "Candidate blocked; note persistence failed: " + str(saved.get("error"))}
+        return {
+            "success": False,
+            "error": "Candidate blocked; note persistence failed: " + str(saved.get("error")),
+        }
     return {"success": True, "action": "preserved_not_reported", "status": status,
             "reason": reason, "note_id": saved.get("note_id"),
             "message": "Candidate saved as a note, not filed as a vulnerability."}
@@ -217,7 +220,7 @@ def _validate_ten_questions(answers: dict[str, Any] | None) -> tuple[str | None,
     return None, None
 
 
-async def _do_create(  # noqa: PLR0912
+async def _do_create(  # noqa: PLR0911, PLR0912, PLR0915
     *,
     title: str,
     description: str,
@@ -313,7 +316,10 @@ async def _do_create(  # noqa: PLR0912
         return _preserve_unverified_candidate(
             title=title, candidate={**candidate, "cvss_score": cvss_score, "severity": severity},
             status="INFORMATIONAL",
-            reason="CVSS is 0.0/None; observations without demonstrated security impact are not reportable.",
+            reason=(
+                "CVSS is 0.0/None; observations without demonstrated security impact "
+                "are not reportable."
+            ),
         )
 
     try:
@@ -1023,7 +1029,7 @@ def _build_dependency_evidence(
     return evidence
 
 
-async def _do_create_dependency(  # noqa: PLR0912
+async def _do_create_dependency(  # noqa: PLR0911, PLR0912, PLR0915
     *,
     title: str,
     description: str,
@@ -1127,7 +1133,10 @@ async def _do_create_dependency(  # noqa: PLR0912
                 "reachability": reachability, "reachability_evidence": reachability_evidence,
             },
             status="INFORMATIONAL",
-            reason="Dependency CVSS is 0.0/None; do not file a zero-impact dependency as a vulnerability.",
+            reason=(
+                "Dependency CVSS is 0.0/None; do not file a zero-impact dependency "
+                "as a vulnerability."
+            ),
         )
 
     dependency_metadata = _build_dependency_metadata(
