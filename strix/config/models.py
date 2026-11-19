@@ -259,6 +259,7 @@ class _TurnGuardModel(Model):
     not covered by the request timeout, which resets on any byte (keepalives
     included). ``LLM_STREAM_IDLE_TIMEOUT`` bounds the gap between events so the
     turn fails instead of hanging, and the existing retry path replays it.
+    The first event and total stream duration have independent bounds too.
     """
 
     def __init__(
