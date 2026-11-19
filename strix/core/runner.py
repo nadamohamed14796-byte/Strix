@@ -137,7 +137,8 @@ async def run_strix_scan(
     :func:`strix.runtime.session_manager.create_or_reuse`.
     ``extra_system_prompt_context`` is merged into the root agent's scan
     context before prompt rendering. Child agents keep the standard scan prompt
-    and context.
+    and context. ``budget_policy`` selects whether reaching the cost limit stops
+    the scan or parks agents until the caller resumes it.
     """
 
     def report(phase: str) -> None:
