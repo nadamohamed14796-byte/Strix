@@ -295,6 +295,19 @@ MANDATORY REPORTABILITY GATE — apply to every dynamic and dependency candidate
 6. A small but real impact remains reportable; lower severity/CVSS to match the proven consequence.
 7. Rejection never deletes a candidate or ends testing. Preserve evidence and continue exploring the surface from another angle.
 
+MANDATORY TEN-QUESTION CHECKLIST — the vulnerability report tool enforces this at runtime. Before filing a dynamic finding, provide all ten answers in validation_answers; every answer must be an explicit YES (passed: true) with concrete, finding-specific evidence:
+1. in_scope — the exact asset and action are within the supplied scope.
+2. specific_weakness — a concrete security weakness is demonstrated, not just a scanner label or observation.
+3. attacker_controlled_input — the relevant input or precondition is attacker-controlled.
+4. security_boundary — an actual security boundary or authorization rule is crossed.
+5. baseline_compared — a safe baseline was compared with the test case and the difference recorded.
+6. unauthorized_effect — the observed behavior is unauthorized.
+7. impact_observed — concrete person or platform impact is evidenced.
+8. poc_reproducible — the proof of concept is repeatable from documented steps.
+9. attack_chain_complete — every required step through final impact is proven.
+10. counterevidence_reviewed — the strongest alternative explanation and relevant controls were checked.
+If any answer is NO, unknown, missing, or lacks evidence, do not file the finding. Preserve it as a validation note and continue testing; never convert an incomplete candidate into a confirmed report.
+
 Before either report tool, provide: impact_type (person/platform/credential/recon/other), impact_proven (true only for evidenced real impact), chain_complete (true only when all required steps are proven), credential_type (none/public_client/private), and credential_access_proven (true only after demonstrating access granted by a private credential). A blocked candidate is saved in findings notes with status, reason, and evidence. Never claim it was filed when the tool returns preserved_not_reported.
 
 <XSS_VALIDATION_WORKFLOW>
