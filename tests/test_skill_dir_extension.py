@@ -39,6 +39,24 @@ def _write_root_skill(root: Path, name: str, body: str) -> None:
     (root / f"{name}.md").write_text(body, encoding="utf-8")
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (["xss", "sql_injection"], ["xss", "sql_injection"]),
+        ('["xss", "sql_injection"]', ["xss", "sql_injection"]),
+        ('"xss"', ["xss"]),
+        ("xss, sql_injection", ["xss", "sql_injection"]),
+        (None, []),
+    ],
+)
+def test_normalize_skill_names_accepts_provider_encoded_arrays(
+    value: list[str] | str | None, expected: list[str]
+) -> None:
+    from strix.skills import normalize_skill_names
+
+    assert normalize_skill_names(value) == expected
+
+
 def test_no_registration_leaves_builtin_only() -> None:
     assert registered_skill_dirs() == ()
     builtin = get_strix_resource_path("skills")
