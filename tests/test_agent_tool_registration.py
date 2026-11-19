@@ -146,6 +146,22 @@ def test_instructions_override_is_used_verbatim() -> None:
     assert agent.instructions == custom
 
 
+def test_select_tools_picks_each_agents_tools() -> None:
+    calls: list[tuple[bool, list[str]]] = []
+
+    def select(*, is_root: bool, skills: list[str], tools: list[Any]) -> list[Any]:
+        calls.append((is_root, skills))
+        wanted = "create_agent" if is_root else "agent_finish"
+        return [tool for tool in tools if tool.name == wanted]
+
+    child = factory.make_child_factory(select_tools=select)(name="worker", skills=["xss"])
+    root = factory.build_strix_agent(is_root=True, select_tools=select)
+
+    assert calls == [(False, ["xss"]), (True, [])]
+    assert [tool.name for tool in child.tools] == ["agent_finish"]
+    assert [tool.name for tool in root.tools] == ["create_agent"]
+
+
 def test_no_override_renders_builtin_prompt() -> None:
     agent = factory.build_strix_agent(is_root=True)
 
