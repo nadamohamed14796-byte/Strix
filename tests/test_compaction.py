@@ -98,15 +98,15 @@ def test_is_context_overflow_matches_untyped_openrouter_400() -> None:
 
 
 def test_is_context_overflow_matches_openai_compatible_gateway_400() -> None:
-    class UpstreamBadRequest(Exception):
+    class UpstreamBadRequestError(Exception):
         status_code = 400
 
-    overflow = UpstreamBadRequest(
+    overflow = UpstreamBadRequestError(
         "context_length_exceeded: maximum context length is 180000 tokens"
     )
     assert compaction.is_context_overflow(overflow)
 
-    throttled = UpstreamBadRequest("rate limit exceeded; retry later")
+    throttled = UpstreamBadRequestError("rate limit exceeded; retry later")
     assert not compaction.is_context_overflow(throttled)
 
 
