@@ -234,7 +234,9 @@ def _serve(scenario: _Scenario) -> tuple[HTTPServer, type[_Gateway]]:
         {"scenario": scenario, "requests": [], "lock": threading.Lock()},
     )
     server = HTTPServer(("127.0.0.1", 0), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    threading.Thread(
+        target=lambda: server.serve_forever(poll_interval=0.01), daemon=True
+    ).start()
     return server, handler
 
 
