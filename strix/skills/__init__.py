@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from collections import Counter
@@ -220,6 +221,26 @@ def get_available_skills() -> dict[str, list[dict[str, str]]]:
         description = " ".join(metadata.get("description", "").split())
         grouped.setdefault(category, []).append({"name": name, "description": description})
     return grouped
+
+
+def normalize_skill_names(value: list[str] | str | None) -> list[str]:
+    """Accept native arrays and providers that JSON-encode array arguments as strings."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return []
+        try:
+            decoded = json.loads(raw)
+        except json.JSONDecodeError:
+            decoded = [part.strip() for part in raw.split(",") if part.strip()]
+        if isinstance(decoded, str):
+            decoded = [decoded]
+        if not isinstance(decoded, list):
+            return [raw]
+        value = decoded
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
 
 
 def validate_requested_skills(skill_list: list[str], max_skills: int = 5) -> str | None:
