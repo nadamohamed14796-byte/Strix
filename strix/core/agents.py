@@ -883,7 +883,9 @@ class AgentCoordinator:
     async def restore(self, snap: dict[str, Any]) -> None:
         async with self._lock:
             self.statuses = dict(snap.get("statuses", {}))
-            self.scan_phase = "testing" if snap.get("scan_phase") == "testing" else "recon"
+            # Legacy snapshots used a scan-wide Recon -> Testing barrier.
+            # Resume them in the native dynamic-orchestration mode instead.
+            self.scan_phase = "testing"
             raw_ledger = snap.get("target_ledger", {})
             self.target_ledger = (
                 {
@@ -901,11 +903,9 @@ class AgentCoordinator:
             self.names = dict(snap.get("names", {}))
             self.metadata = {aid: dict(md) for aid, md in snap.get("metadata", {}).items()}
             for aid in self.statuses:
-                if self.metadata.get(aid, {}).get("phase") not in {"recon", "testing"}:
-                    parent = self.parent_of.get(aid)
-                    parent_metadata = self.metadata.get(parent, {}) if parent is not None else {}
-                    inherited = parent_metadata.get("phase", self.scan_phase)
-                    self.metadata.setdefault(aid, {})["phase"] = inherited
+                # All resumed agents participate in the same live scan phase.
+                # Keep task, skills, and target IDs, but discard legacy phase locks.
+                self.metadata.setdefault(aid, {})["phase"] = "testing"
             self.pending_counts = dict(snap.get("pending_counts", {}))
             self.errors = dict(snap.get("errors", {}))
             self.recovery_counts = dict(snap.get("recovery_counts", {}))
