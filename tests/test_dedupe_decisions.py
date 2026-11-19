@@ -95,6 +95,11 @@ async def _file_finding() -> dict[str, Any]:
         cve=None,
         cwe="CWE-79",
         code_locations=None,
+        impact_type="platform",
+        impact_proven=True,
+        chain_complete=True,
+        credential_type="none",
+        credential_access_proven=False,
     )
 
 
