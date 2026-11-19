@@ -133,7 +133,6 @@ async def test_create_report_persists_new_fields(report_state: ReportState) -> N
         cwe="CWE-79",
         code_locations=None,
         validation_answers=_validation_answers(),
-        validation_answers=_validation_answers(),
         impact_type="person",
         impact_proven=True,
         chain_complete=True,
