@@ -2208,13 +2208,28 @@ async def _do_create_dependency(  # noqa: PLR0911, PLR0912, PLR0915
     agent_id: str | None = None,
     agent_name: str | None = None,
 ) -> dict[str, Any]:
-    gate_status, gate_reason = _finding_validation_gate(
-        impact_type=impact_type,
-        impact_proven=impact_proven,
-        chain_complete=chain_complete,
-        credential_type=credential_type,
-        credential_access_proven=credential_access_proven,
+    generic_gate_inputs = (
+        impact_type,
+        impact_proven,
+        chain_complete,
+        credential_type,
+        credential_access_proven,
     )
+    # Dependency advisories have their own mandatory proof contract below:
+    # CVE/package identity, version, reachability verdict and supporting
+    # evidence, plus contextual CVSS. Apply the generic impact gate only when
+    # the caller explicitly supplies its fields; otherwise it would reject
+    # every dependency report before the dependency-specific checks can run.
+    if any(value is not None for value in generic_gate_inputs):
+        gate_status, gate_reason = _finding_validation_gate(
+            impact_type=impact_type,
+            impact_proven=impact_proven,
+            chain_complete=chain_complete,
+            credential_type=credential_type,
+            credential_access_proven=credential_access_proven,
+        )
+    else:
+        gate_status, gate_reason = None, None
     if gate_status:
         candidate = {
             "finding_class": "dependency_cve",
@@ -2412,6 +2427,9 @@ async def _do_create_dependency(  # noqa: PLR0911, PLR0912, PLR0915
             code_locations=parsed_locations,
             fix_verification=fix_verification,
             validation_gate={
+                "validation_type": "dependency_advisory",
+                "reachability": reachability,
+                "reachability_evidence": reachability_evidence,
                 "impact_type": impact_type,
                 "impact_proven": impact_proven,
                 "chain_complete": chain_complete,
