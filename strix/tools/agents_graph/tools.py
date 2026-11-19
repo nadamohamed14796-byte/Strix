@@ -540,7 +540,7 @@ async def create_agent(
         inherit_context: Default ``True``. The child receives the
             parent's input history as background; only set ``False``
             when starting a clean-slate task.
-        skills: List of skill names (e.g. ``["xss", "sql_injection"]``).
+        skills: List of available skill names. Prefer exact category-qualified names from ``available_skills`` (e.g. ``["vulnerabilities/xss", "vulnerabilities/sql_injection"]``); bare names are rejected when ambiguous.
             Max 5; prefer 1-3.
     """
     inner = _ctx(ctx)
