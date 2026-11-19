@@ -1166,7 +1166,7 @@ async def _start_child_runner(
     name: str,
     parent_id: str | None,
     task: str,
-    skills: list[str],
+    skills: list[str] | None = None,
     initial_input: Any,
     start_parked: bool = False,
     event_sink: StreamEventSink | None = None,
@@ -1181,7 +1181,7 @@ async def _start_child_runner(
     child_ctx["parent_id"] = parent_id
     child_ctx["task"] = task
     child_ctx[TURN_LIMIT_KEY] = skill_turn_limit(
-        skills, parent_ctx.get(SUBAGENT_TURN_LIMITS_KEY) or {}
+        skills or [], parent_ctx.get(SUBAGENT_TURN_LIMITS_KEY) or {}
     )
 
     async def _child_loop() -> None:
