@@ -62,6 +62,21 @@ def test_child_initial_input_no_consecutive_same_role(parent_history: list[Any])
     assert all(prev != nxt for prev, nxt in pairwise(roles))
 
 
+def test_child_initial_input_bounds_inherited_history_and_keeps_recent_context() -> None:
+    history = [
+        {"role": "assistant", "content": "old-context-" + "x" * 20_000},
+        {"role": "assistant", "content": "recent-context-" + "y" * 20_000},
+    ]
+
+    result = child_initial_input(**_child_kwargs(history))
+    content = result[0]["content"]
+
+    assert len(content) < 33_000
+    assert "recent-context-" in content
+    assert "old-context-" not in content
+    assert "Audit the login flow." in content
+
+
 def _cache_points(model_name: str) -> Any:
     extra = make_model_settings(None, model_name=model_name).extra_args or {}
     return extra.get("cache_control_injection_points")
