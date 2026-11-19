@@ -22,6 +22,9 @@ from strix.config.models import (
 from strix.core.sessions import scrub_images_from_items
 
 
+_MAX_CHILD_INHERITED_CONTEXT_CHARS = 32_000
+
+
 if TYPE_CHECKING:
     from strix.config.settings import ReasoningEffort
 
@@ -357,13 +360,26 @@ def child_initial_input(
     """
     parts: list[str] = []
     if parent_history:
-        rendered = json.dumps(
-            scrub_images_from_items(parent_history),
-            ensure_ascii=False,
-            default=str,
-        )
+        safe_history = scrub_images_from_items(parent_history)
+        # A child receives one initial user message before its first run cycle,
+        # so normal session compaction cannot protect it from an oversized
+        # inherited transcript. Keep the newest contiguous items within a
+        # conservative character budget; the task itself carries the child's
+        # explicit objective and any evidence the parent needs it to use.
+        selected: list[Any] = []
+        used_chars = 2  # JSON list brackets.
+        for item in reversed(safe_history):
+            encoded = json.dumps(item, ensure_ascii=False, default=str)
+            extra = len(encoded) + (1 if selected else 0)
+            if used_chars + extra > _MAX_CHILD_INHERITED_CONTEXT_CHARS:
+                break
+            selected.append(item)
+            used_chars += extra
+        selected.reverse()
+        rendered = json.dumps(selected, ensure_ascii=False, default=str)
         parts.append(
-            "== Inherited context from parent (background only) ==\n"
+            "== Inherited context from parent (background only; bounded to the newest "
+            f"{_MAX_CHILD_INHERITED_CONTEXT_CHARS:,} characters) ==\n"
             f"{rendered}\n"
             "== End of inherited context ==\n"
             "Use the above as background only; do not continue the "
