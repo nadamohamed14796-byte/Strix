@@ -247,6 +247,19 @@ class _NonStreamingModel(Model):
         yield _completed_stream_event(response, getattr(self._inner, "model", None))
 
 
+def _log_response_tool_calls(response: ModelResponse, available_tools: list[Tool]) -> None:
+    """Log tool-call names without arguments so provider tool-call loss is diagnosable."""
+    names = [
+        str(getattr(item, "name", ""))
+        for item in response.output
+        if getattr(item, "type", None) == "function_call"
+    ]
+    if names:
+        logger.info("Model returned %d function tool call(s): %s", len(names), ", ".join(names))
+    elif any(getattr(tool, "name", None) == "create_agent" for tool in available_tools):
+        logger.debug("Model response contained no function calls; create_agent was available")
+
+
 class _TurnGuardModel(Model):
     """Keep one turn from corrupting the conversation or running away.
 
@@ -337,6 +350,7 @@ class _TurnGuardModel(Model):
             conversation_id=conversation_id,
             prompt=prompt,
         )
+        _log_response_tool_calls(response, tools)
         limiter = self._limiter()
         response.output = limiter.filter_items(rewriter.rewrite_items(list(response.output)))
         self._log_dropped(limiter)
@@ -378,8 +392,10 @@ class _TurnGuardModel(Model):
             stream,
             idle=self._stream_idle_timeout,
             first_event=self._first_event_timeout,
-            total=self._total_timeout,
+            total=self._stream_total_timeout,
         ):
+            if isinstance(event, ResponseCompletedEvent):
+                _log_response_tool_calls(event.response, tools)
             guarded = _guard_event(event, rewriter, limiter)
             if guarded is not None:
                 yield guarded
