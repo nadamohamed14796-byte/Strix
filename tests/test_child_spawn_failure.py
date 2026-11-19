@@ -67,9 +67,13 @@ async def test_child_spawn_starts_a_detached_runner(
 
     monkeypatch.setattr(execution, "run_agent_loop", fake_run_agent_loop)
 
+    def child_factory(**kwargs: Any) -> object:
+        captured["factory"] = kwargs
+        return object()
+
     result = await execution.spawn_child_agent(
         coordinator=coordinator,
-        factory=lambda **kwargs: captured.setdefault("factory", kwargs) or object(),
+        factory=child_factory,
         agents_db_path=tmp_path,
         sessions_to_close=cast("Any", []),
         run_config=cast("Any", None),
