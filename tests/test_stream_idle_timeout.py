@@ -111,7 +111,7 @@ async def test_stalled_stream_hangs_without_the_watchdog(stalling_gateway: str) 
 @pytest.mark.asyncio
 async def test_stalled_stream_is_abandoned_by_the_watchdog(stalling_gateway: str) -> None:
     started = time.monotonic()
-    with pytest.raises(TimeoutError, match="produced no event"):
+    with pytest.raises(TimeoutError, match="stream_idle_timeout"):
         await _drain(stalling_gateway, idle_timeout=1)
 
     assert time.monotonic() - started < _STALL_SECONDS
