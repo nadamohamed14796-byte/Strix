@@ -1,4 +1,4 @@
-"""Tests for the mandatory finding reportability gate."""
+import json\n\n"""Tests for the mandatory finding reportability gate."""
 
 from strix.tools.notes import tools as notes_tools
 from strix.tools.reporting.tool import (
@@ -165,11 +165,13 @@ def test_preserved_candidate_note_redacts_secret_on_disk(monkeypatch, tmp_path) 
         "Granted access has not been demonstrated.",
     )
 
-    persisted = (tmp_path / "notes.json").read_text(encoding="utf-8")
+    persisted = json.loads((tmp_path / "notes.json").read_text(encoding="utf-8"))
     assert result["success"] is True
-    assert credential_fixture not in persisted
-    assert "[REDACTED sha256:" in persisted
-    assert '"credential_type": "private"' in persisted
+    assert credential_fixture not in json.dumps(persisted)
+    assert "[REDACTED sha256:" in json.dumps(persisted)
+    note = next(iter(persisted.values()))
+    payload = json.loads(note["content"])
+    assert payload["candidate"]["credential_type"] == "private"
 
 
 def test_missing_gate_classification_fails_closed() -> None:
