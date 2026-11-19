@@ -1048,7 +1048,7 @@ async def test_interactive_text_only_turn_is_nudged_instead_of_parking(
     # The retry carries an explicit "call a tool" nudge rather than empty input.
     nudge = calls[1][0]["content"]
     assert "without a tool call" in nudge
-    assert "respond_to_user" in nudge
+    assert "wait_for_user" in nudge
     assert coordinator.statuses["root"] == "completed"
 
 
@@ -1179,7 +1179,7 @@ async def test_tool_required_message_is_persisted_to_the_session(tmp_path: Any) 
 
     stored = [cast("dict[str, Any]", i) for i in await session.get_items()]
     assert "finish_scan" in stored[0]["content"]
-    assert "respond_to_user" in stored[0]["content"]
+    assert "wait_for_user" in stored[0]["content"]
     session.close()
 
 
@@ -1311,7 +1311,7 @@ async def test_interactive_nudge_offers_waiting_without_repeating() -> None:
         interactive=True,
     )
 
-    assert "with no message if you have already said it" in items[0]["content"]
+    assert "do not repeat it" in items[0]["content"]
 
 
 @pytest.mark.asyncio
@@ -1325,7 +1325,7 @@ async def test_autonomous_nudge_does_not_offer_the_user() -> None:
         interactive=False,
     )
 
-    assert "respond_to_user" not in items[0]["content"]
+    assert "wait_for_user" not in items[0]["content"]
 
 
 @pytest.mark.asyncio
