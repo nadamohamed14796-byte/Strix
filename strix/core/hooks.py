@@ -40,6 +40,13 @@ class SubagentBudgetReservedError(RuntimeError):
 class BudgetPausedError(RuntimeError):
     """Raised to park one agent when an interactive scan reaches its budget."""
 
+    def __init__(
+        self, message: str, *, resume_epoch: int = 0, operator_pause: bool = False
+    ) -> None:
+        super().__init__(message)
+        self.resume_epoch = resume_epoch
+        self.operator_pause = operator_pause
+
 
 def recomputed_budget_flags(
     cost: float,
