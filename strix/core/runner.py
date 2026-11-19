@@ -8,7 +8,7 @@ import io
 import json
 import logging
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -237,6 +237,7 @@ async def run_strix_scan(
     report_tool: Tool = create_vulnerability_report,
     coverage_tools: bool = True,
     subagent_turn_limits: Mapping[str, int] | None = None,
+    select_tools: Callable[..., Sequence[Tool]] | None = None,
 ) -> RunResultBase | None:
     """Run or resume one Strix scan against a sandbox.
 
@@ -547,6 +548,7 @@ async def run_strix_scan(
             finish_tool=root_finish_tool,
             report_tool=report_tool,
             coverage_tools=coverage_tools,
+            select_tools=select_tools,
         )
 
         if not is_resume:
@@ -570,6 +572,7 @@ async def run_strix_scan(
             supports_images=supports_images,
             report_tool=report_tool,
             coverage_tools=coverage_tools,
+            select_tools=select_tools,
         )
 
         async def spawn_child_agent(**kwargs: Any) -> dict[str, Any]:
