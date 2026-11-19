@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 Status = Literal["running", "waiting", "completed", "stopped", "crashed", "failed", "budget_paused"]
 BudgetPolicy = Literal["stop", "pause"]
 TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "stopped", "crashed", "failed"})
+ACTIVE_STATUSES: frozenset[str] = frozenset({"running", "waiting", "budget_paused"})
 ScanPhase = Literal["recon", "testing"]
 
 # Why an agent parked. The user can message any agent, so this - not the agent's
