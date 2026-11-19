@@ -238,7 +238,9 @@ def _create_note_impl(  # noqa: PLR0911
         else:
             if _notes_path is None:
                 if require_persistence:
-                    logger.error("required note persistence requested before a state directory was configured")
+                    logger.error(
+                        "required note persistence requested before a state directory was configured"
+                    )
                     return {
                         "success": False,
                         "error": "Note persistence failed: no state directory was configured.",
