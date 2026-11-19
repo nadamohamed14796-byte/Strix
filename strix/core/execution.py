@@ -29,6 +29,7 @@ from strix.core.hooks import (
     BudgetExceededError,
     BudgetPausedError,
     SubagentBudgetReservedError,
+    subagent_finish_tool,
 )
 from strix.core.inputs import child_initial_input
 from strix.core.sessions import (
@@ -437,6 +438,7 @@ async def spawn_child_agent(
             parent_id=parent_id,
             task=task,
             parent_history=parent_history,
+            finish_tool=subagent_finish_tool(parent_ctx),
         ),
         event_sink=event_sink,
         hooks=hooks,
