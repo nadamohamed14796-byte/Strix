@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 from types import SimpleNamespace
+import asyncio
 
 import pytest
 
@@ -21,7 +21,10 @@ def test_pause_policy_blocks_the_next_model_call_at_the_budget_limit(
         def get_total_llm_cost() -> float:
             return 5.25
 
-    monkeypatch.setattr("strix.core.hooks.get_global_report_state", lambda: _ReportState())
+    def _get_report_state() -> _ReportState:
+        return _ReportState()
+
+    monkeypatch.setattr("strix.core.hooks.get_global_report_state", _get_report_state)
 
     with pytest.raises(BudgetPausedError) as raised:
         hooks._pause_if_limited(SimpleNamespace(context={"coordinator": coordinator}))
