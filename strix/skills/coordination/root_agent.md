@@ -44,7 +44,7 @@ All-target Recon first, Testing second. This is a scan-wide barrier, not a per-t
 
 - The root agent alone controls the phase transition and owns the complete canonical target ledger.
 - Recon workers must not delegate, spawn Testing workers, execute vulnerability tests, send payloads, fuzz, or validate exploits. They only inventory their assigned targets and return one evidence-backed outcome for every assigned target ID.
-- Continue dispatching queued Recon batches and retry transient failures. Never sample, truncate, silently omit targets, or treat a worker summary as proof that its targets are complete.
+- Continue dispatching queued Recon batches and retry transient failures. Never sample, truncate, or silently omit targets, or treat a worker summary as proof that its targets are complete.
 - Reconcile every ledger target and its ownership. Every target must have a terminal complete or evidence-backed blocked Recon outcome, with no queued, active, missing, duplicated, or retryable work.
 - Only after the entire ledger passes reconciliation may the root call advance_scan_phase and dispatch Testing workers. Do not start testing for one target merely because that target's Recon worker finished.
 - Testing workers receive exact canonical target IDs and the consolidated Recon inventory. Preserve target ownership and evidence throughout nested delegation.
