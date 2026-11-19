@@ -19,6 +19,7 @@ from strix.report.writer import write_run_record
 from strix.tools.finish.tool import finish_scan
 from strix.tools.reporting import tool as reporting_tool
 from strix.tools.reporting.tool import (
+    _VALIDATION_QUESTIONS,
     _do_create,
     _do_create_dependency,
     _do_delete,
@@ -64,6 +65,13 @@ _DEP_CONTEXT_VECTOR = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
 _DEP_EVIDENCE = "src/render.ts:14 imports the package."
 
 _DEP_REASONING = "Only scripts/import.py reaches the sink, so the impact is availability only."
+
+
+def _validation_answers() -> dict[str, dict[str, object]]:
+    return {
+        question: {"passed": True, "evidence": f"Verified test evidence for {question}"}
+        for question in _VALIDATION_QUESTIONS
+    }
 
 
 @pytest.fixture
@@ -124,6 +132,7 @@ async def test_create_report_persists_new_fields(report_state: ReportState) -> N
         cve=None,
         cwe="CWE-79",
         code_locations=None,
+        validation_answers=_validation_answers(),
         impact_type="person",
         impact_proven=True,
         chain_complete=True,
@@ -303,6 +312,7 @@ async def _create_with(report_state: ReportState, **overrides: object) -> dict[s
         "chain_complete": True,
         "credential_type": "none",
         "credential_access_proven": False,
+        "validation_answers": _validation_answers(),
     }
     kwargs.update(overrides)
     assert report_state is not None
