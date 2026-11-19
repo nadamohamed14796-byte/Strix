@@ -37,6 +37,7 @@ def test_ten_question_gate_accepts_ten_evidence_backed_yes_answers() -> None:
     assert status is None
     assert reason is None
 
+
 def test_cvss_without_demonstrated_impact_is_informational() -> None:
     score, severity, vector = _calculate_cvss(
         {
@@ -134,7 +135,7 @@ async def test_vulnerability_report_fails_when_report_state_is_unavailable(
 async def test_do_create_preserves_candidate_when_ten_answers_are_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def preserve(title: str, candidate: dict, status: str, reason: str) -> dict:
+    def preserve(_title: str, _candidate: dict, status: str, _reason: str) -> dict:
         return {"success": True, "action": "preserved_not_reported", "status": status}
 
     monkeypatch.setattr("strix.tools.reporting.tool._preserve_validation_candidate", preserve)
