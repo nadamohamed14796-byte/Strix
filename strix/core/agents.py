@@ -892,6 +892,7 @@ class AgentCoordinator:
                 "budget_stopped": self._budget_stopped,
                 "reserve_stopped": self._reserve_stopped,
                 "budget_paused": self._budget_paused,
+                "operator_paused": self._operator_paused,
             }
 
     async def restore(self, snap: dict[str, Any]) -> None:
@@ -934,6 +935,7 @@ class AgentCoordinator:
             self._budget_stopped = bool(snap.get("budget_stopped", False))
             self._reserve_stopped = bool(snap.get("reserve_stopped", False))
             self._budget_paused = bool(snap.get("budget_paused", False))
+            self._operator_paused = bool(snap.get("operator_paused", False))
             for aid in self.statuses:
                 self.runtimes.setdefault(aid, AgentRuntime())
 
