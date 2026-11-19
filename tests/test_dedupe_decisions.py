@@ -93,7 +93,7 @@ async def _file_finding() -> dict[str, Any]:
         endpoint="/search",
         method="GET",
         cve=None,
-        cwe="CWE-79",
+        cwe="CWE-639",
         code_locations=None,
         impact_type="platform",
         impact_proven=True,
