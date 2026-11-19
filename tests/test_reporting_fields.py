@@ -25,6 +25,17 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
+_VALIDATION_ANSWERS = {
+    key: {"passed": True, "evidence": f"Verified during controlled assessment: {key}."}
+    for key in (
+        "in_scope", "specific_weakness", "attacker_controlled_input",
+        "security_boundary", "baseline_compared", "unauthorized_effect",
+        "impact_observed", "poc_reproducible", "attack_chain_complete",
+        "counterevidence_reviewed",
+    )
+}
+
+
 _CVSS = {
     "attack_vector": "N",
     "attack_complexity": "L",
@@ -82,7 +93,8 @@ async def test_create_report_persists_new_fields(report_state: ReportState) -> N
         cve=None,
         cwe="CWE-79",
         code_locations=None,
-        fix_pr_body="## Fix\nEncode output.",
+        fix_pr_body="## Fix\nEncode output.",,
+        validation_answers=_VALIDATION_ANSWERS
     )
     assert result["success"] is True
     report = report_state.vulnerability_reports[0]
@@ -113,7 +125,8 @@ async def test_create_report_requires_evidence_and_assumptions(
         method=None,
         cve=None,
         cwe=None,
-        code_locations=None,
+        code_locations=None,,
+        validation_answers=_VALIDATION_ANSWERS
     )
     assert result["success"] is False
     joined = " ".join(result["errors"])
@@ -295,10 +308,10 @@ async def test_dependency_report_with_no_contextual_impact_is_info(
     )
 
     assert result["success"] is True
-    assert result["severity"] == "info"
-    report = report_state.vulnerability_reports[0]
-    assert report["severity"] == "info"
-    assert report["cvss"] == 0.0
+    assert result["action"] == "preserved_not_reported"
+    assert result["status"] == "INFORMATIONAL"
+    assert "zero-impact dependency" in result["reason"]
+    assert not report_state.vulnerability_reports
 
 
 async def test_dependency_report_records_reachability(report_state: ReportState) -> None:
