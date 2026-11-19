@@ -1057,9 +1057,9 @@ async def _do_create(  # noqa: PLR0911, PLR0912
     agent_name: str | None = None,
 ) -> dict[str, Any]:
     validation_status, validation_reason = _validate_ten_questions(validation_answers)
-    if validation_status:
-        gate_status, gate_reason = validation_status, validation_reason
-    else:
+    gate_status: str | None = validation_status
+    gate_reason: str | None = validation_reason
+    if not validation_status:
         gate_status, gate_reason = _finding_validation_gate(
             impact_type=impact_type,
             impact_proven=impact_proven,
