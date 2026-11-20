@@ -13,7 +13,6 @@ from agents.sandbox import SandboxAgent
 from agents.sandbox.capabilities import Filesystem, Shell
 from agents.sandbox.errors import InvalidManifestPathError
 from agents.tool import CustomTool, FunctionTool, Tool
-
 from pydantic import ValidationError
 from strix.agents.prompt import render_system_prompt
 from strix.config import load_settings
