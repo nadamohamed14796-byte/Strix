@@ -470,6 +470,7 @@ class AgentCoordinator:
                 )
             if (
                 assigned_phase == "recon"
+                and self.target_ledger
                 and parent_id is not None
                 and self.parent_of.get(parent_id) is not None
             ):
