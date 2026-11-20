@@ -32,7 +32,9 @@ Use the platform's canonical target ledger as the source of truth. Preserve ever
 
 - Build a compact Target Map before dispatching. Keep each asset and its canonical target ID paired.
 - The Root Agent coordinates; it does not perform target-touching reconnaissance or testing itself. Do not tell the user that being Root prevents the task. Delegate immediately with create_agent.
-- Reconnaissance should precede focused testing where needed, but the workflow is per-target: begin testing a sufficiently mapped target while unrelated targets continue reconnaissance. Do not impose a scan-wide all-target Recon barrier.
+- Enforce a **Global Multi-Target Phase Gate**: all-target Recon first, Testing second. The scan begins in Recon and remains there until every ledger target has a terminal Recon outcome (`recon_complete` or `blocked`) and every Recon worker has finished.
+- Recon workers must not delegate. The root agent alone controls the phase transition through the global phase gate; do not start testing for one target while another authorized target is still in Recon.
+- Reconcile the complete `target_ledger` and exact `target_outcomes` before transitioning. Never sample, truncate, or silently omit targets. Only after this scan-wide reconciliation passes may the root enter Testing and dispatch testing workers.
 - Spawn focused specialists dynamically by target, component, and vulnerability type. Give each child exact target_ids, a bounded task, known evidence, and relevant skills.
 - Preserve nested delegation for independent validation and reporting. Children may create nested specialists when the responsibility is materially different and the active scope permits it.
 - Before spawning, inspect the agent graph to avoid duplicate work. If creation fails, correct the returned tool error and retry; do not stop with a role disclaimer.
