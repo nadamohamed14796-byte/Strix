@@ -883,9 +883,8 @@ class AgentCoordinator:
     async def restore(self, snap: dict[str, Any]) -> None:
         async with self._lock:
             self.statuses = dict(snap.get("statuses", {}))
-            # Legacy snapshots used a scan-wide Recon -> Testing barrier.
-            # Resume them in the native dynamic-orchestration mode instead.
-            self.scan_phase = "testing"
+            saved_phase = snap.get("scan_phase")
+            self.scan_phase = saved_phase if saved_phase in {"recon", "testing"} else "testing"
             raw_ledger = snap.get("target_ledger", {})
             self.target_ledger = (
                 {
