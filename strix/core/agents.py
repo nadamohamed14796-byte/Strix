@@ -468,6 +468,12 @@ class AgentCoordinator:
                     f"Cannot register {assigned_phase!r} agent while scan/parent phase is "
                     f"{self.scan_phase!r}/{parent_phase!r}"
                 )
+            if (
+                assigned_phase == "recon"
+                and parent_id is not None
+                and self.parent_of.get(parent_id) is not None
+            ):
+                raise ValueError("Recon batches are root-owned")
             normalized_target_ids = list(dict.fromkeys(target_ids or []))
             if len(normalized_target_ids) != len(target_ids or []):
                 raise ValueError("A child task cannot contain duplicate target IDs")
@@ -479,6 +485,13 @@ class AgentCoordinator:
                 unknown = sorted(set(normalized_target_ids) - set(self.target_ledger))
                 if unknown:
                     raise ValueError(f"Child task references unknown target IDs: {unknown}")
+                if assigned_phase == "testing":
+                    for target_id in normalized_target_ids:
+                        entry = self.target_ledger[target_id]
+                        if entry.get("status") != "recon_complete":
+                            raise ValueError(
+                                f"Target {target_id} cannot enter Testing without completed Recon"
+                            )
                 if assigned_phase == "recon":
                     for target_id in normalized_target_ids:
                         entry = self.target_ledger[target_id]

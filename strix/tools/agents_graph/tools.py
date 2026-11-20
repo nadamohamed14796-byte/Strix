@@ -508,7 +508,7 @@ async def create_agent(  # noqa: PLR0911 - each validation failure returns a pre
     task: str,
     inherit_context: bool = True,
     skills: list[str] | None = None,
-    phase: Literal["testing"] | None = None,
+    phase: Literal["recon", "testing"] | None = None,
     target_ids: list[str] | None = None,
 ) -> str:
     """Spawn a specialist child agent to run in parallel.
@@ -577,6 +577,11 @@ async def create_agent(  # noqa: PLR0911 - each validation failure returns a pre
         )
 
     caller_phase = await coordinator.phase_for(parent_id)
+    if caller_phase == "recon" and coordinator.parent_of.get(parent_id) is not None:
+        return json.dumps(
+            {"success": False, "error": "Recon workers cannot delegate"},
+            ensure_ascii=False,
+        )
     requested_phase = phase or caller_phase
     if requested_phase != caller_phase or requested_phase != coordinator.scan_phase:
         return json.dumps(

@@ -173,7 +173,7 @@ def test_build_root_task_empty_config() -> None:
     assert build_root_task({}) == ""
 
 
-def test_build_root_task_repository_target() -> None:
+def test_build_root_task_repository_target_uses_system_verified_scope() -> None:
     config = {
         "targets": [
             {
@@ -188,12 +188,13 @@ def test_build_root_task_repository_target() -> None:
     }
     task = build_root_task(config)
 
-    assert "Repositories:" in task
-    assert "/workspace/repo" in task
-    assert "https://example.com/repo.git" in task
+    assert "Authorized Target Set" in task
+    assert "SYSTEM-VERIFIED SCOPE" in task
+    assert "Repositories:" not in task
+    assert "https://example.com/repo.git" not in task
 
 
-def test_build_root_task_web_application_with_instructions() -> None:
+def test_build_root_task_web_application_uses_system_verified_scope() -> None:
     config = {
         "targets": [
             {"type": "web_application", "details": {"target_url": "https://app.example.com"}},
@@ -202,8 +203,10 @@ def test_build_root_task_web_application_with_instructions() -> None:
     }
     task = build_root_task(config)
 
-    assert "URLs:" in task
-    assert "https://app.example.com" in task
+    assert "Authorized Target Set" in task
+    assert "SYSTEM-VERIFIED SCOPE" in task
+    assert "URLs:" not in task
+    assert "https://app.example.com" not in task
     assert "Special instructions: Focus on auth." in task
 
 

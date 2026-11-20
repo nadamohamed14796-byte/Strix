@@ -123,8 +123,10 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
             "target ID and its exact value. Do not reconstruct or narrow the "
             "scope from this task message."
         )
-        for target in targets:
-            if target.get("type") == "api_spec":
+        api_spec_targets = [target for target in targets if target.get("type") == "api_spec"]
+        if api_spec_targets:
+            parts.append("\n\nAPI Specifications:")
+            for target in api_spec_targets:
                 parts.extend(_render_api_spec(target.get("details") or {}))
 
     # A workspace mount is a directory to work in, not an asset to test.
