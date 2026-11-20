@@ -1387,6 +1387,21 @@ async def test_scan_phase_is_persisted_and_restored() -> None:
     assert restored.scan_phase == "testing"
     assert await restored.phase_for("root") == "testing"
 
+@pytest.mark.asyncio
+async def test_recon_phase_is_preserved_when_resuming_before_testing() -> None:
+    coordinator = AgentCoordinator()
+    await coordinator.register("root", "Root", parent_id=None)
+    await coordinator.initialize_target_ledger(
+        [{"target_id": "target-a", "type": "web_application", "value": "https://a.example"}]
+    )
+    snapshot = await coordinator.snapshot()
+
+    restored = AgentCoordinator()
+    await restored.restore(snapshot)
+
+    assert restored.scan_phase == "recon"
+    assert restored.target_ledger["target-a"]["status"] == "queued"
+
 
 @pytest.mark.asyncio
 async def test_create_agent_tool_enforces_scan_phase() -> None:
