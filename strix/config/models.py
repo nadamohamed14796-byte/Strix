@@ -247,7 +247,7 @@ class _NonStreamingModel(Model):
         yield _completed_stream_event(response, getattr(self._inner, "model", None))
 
 
-def _log_response_tool_calls(response: ModelResponse, available_tools: list[Tool]) -> None:
+def _log_response_tool_calls(response: ModelResponse | Response, available_tools: list[Tool]) -> None:
     """Log tool-call names without arguments so provider tool-call loss is diagnosable."""
     names = [
         str(getattr(item, "name", ""))
