@@ -136,9 +136,7 @@ def _transient_model_retry_delay(attempt: int) -> float:
     return min(delay, _TRANSIENT_MODEL_RETRY_MAX_DELAY_S)
 
 
-async def _repair_session_tool_history(
-    session: Session, agent_id: str
-) -> list[Any] | None:
+async def _repair_session_tool_history(session: Session, agent_id: str) -> list[Any] | None:
     """Remove orphaned tool outputs before the SDK replays a persisted session."""
     try:
         original = list(await session.get_items())

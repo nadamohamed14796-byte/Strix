@@ -400,8 +400,7 @@ async def wait_for_agents(  # noqa: PLR0911
 
     _, statuses, names, _ = await coordinator.graph_snapshot()
     active_others = [
-        aid for aid, status in statuses.items()
-        if aid != me and status in ACTIVE_STATUSES
+        aid for aid, status in statuses.items() if aid != me and status in ACTIVE_STATUSES
     ]
     if not active_others:
         return json.dumps(
@@ -411,7 +410,8 @@ async def wait_for_agents(  # noqa: PLR0911
                 "reason": reason,
                 "agents": [
                     {"agent_id": aid, "name": names.get(aid, aid), "status": status}
-                    for aid, status in statuses.items() if aid != me
+                    for aid, status in statuses.items()
+                    if aid != me
                 ],
                 "note": (
                     "No other agent is running or waiting, so no message can arrive. "

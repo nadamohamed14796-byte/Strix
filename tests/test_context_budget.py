@@ -28,9 +28,7 @@ def test_context_window_chatgpt_prefix_skips_provider_auth(
     monkeypatch.setattr(
         context_budget,
         "load_settings",
-        lambda: SimpleNamespace(
-            context=ContextSettings(), llm=SimpleNamespace(api_base=None)
-        ),
+        lambda: SimpleNamespace(context=ContextSettings(), llm=SimpleNamespace(api_base=None)),
     )
     context_budget._model_info.cache_clear()
     calls: list[str] = []
@@ -57,9 +55,7 @@ def test_custom_endpoint_context_window_is_capped(monkeypatch: pytest.MonkeyPatc
         context_budget,
         "load_settings",
         lambda: SimpleNamespace(
-            context=SimpleNamespace(
-                fallback_context_tokens=160_000, max_context_tokens=160_000
-            ),
+            context=SimpleNamespace(fallback_context_tokens=160_000, max_context_tokens=160_000),
             llm=SimpleNamespace(api_base="https://inference.dahl.global/v1"),
         ),
     )

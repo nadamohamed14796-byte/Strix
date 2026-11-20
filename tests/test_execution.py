@@ -66,9 +66,7 @@ async def test_session_history_read_failure_is_not_treated_as_empty(
         async def get_items(self) -> list[Any]:
             raise OSError("database temporarily unavailable")
 
-    result = await execution._repair_session_tool_history(
-        cast("Any", BrokenSession()), "agent-1"
-    )
+    result = await execution._repair_session_tool_history(cast("Any", BrokenSession()), "agent-1")
 
     assert result is None
     assert "could not validate session history" in caplog.text
@@ -1386,6 +1384,7 @@ async def test_scan_phase_is_persisted_and_restored() -> None:
     await restored.restore(snapshot)
     assert restored.scan_phase == "testing"
     assert await restored.phase_for("root") == "testing"
+
 
 @pytest.mark.asyncio
 async def test_recon_phase_is_preserved_when_resuming_before_testing() -> None:

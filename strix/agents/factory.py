@@ -522,7 +522,6 @@ _BASE_TOOLS: tuple[Tool, ...] = (
     view_agent_graph,
     send_message_to_agent,
     wait_for_agents,
-
     create_agent,
     stop_agent,
 )

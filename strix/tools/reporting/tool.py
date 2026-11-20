@@ -163,9 +163,15 @@ _REQUIRED_FIELDS = {
 _VALID_FIX_EFFORT = frozenset({"trivial", "low", "medium", "high"})
 
 _VALIDATION_QUESTIONS = (
-    "in_scope", "specific_weakness", "attacker_controlled_input",
-    "security_boundary", "baseline_compared", "unauthorized_effect",
-    "impact_observed", "poc_reproducible", "attack_chain_complete",
+    "in_scope",
+    "specific_weakness",
+    "attacker_controlled_input",
+    "security_boundary",
+    "baseline_compared",
+    "unauthorized_effect",
+    "impact_observed",
+    "poc_reproducible",
+    "attack_chain_complete",
     "counterevidence_reviewed",
 )
 
@@ -174,14 +180,20 @@ def _preserve_unverified_candidate(
     *, title: str, candidate: dict[str, Any], status: str, reason: str
 ) -> dict[str, Any]:
     """Keep rejected candidates as notes without polluting vulnerability reports."""
-    payload = {"status": status, "reason": reason, "candidate": candidate,
-               "next_action": "Continue validation; do not list this as a confirmed vulnerability."}
+    payload = {
+        "status": status,
+        "reason": reason,
+        "candidate": candidate,
+        "next_action": "Continue validation; do not list this as a confirmed vulnerability.",
+    }
     try:
         from strix.tools.notes.tools import _create_note_impl
+
         saved = _create_note_impl(
             title=f"[{status}] {str(title or 'Unverified candidate')[:160]}",
             content=json.dumps(payload, ensure_ascii=False, default=str, indent=2),
-            category="findings", tags=["finding-validation", status.lower()],
+            category="findings",
+            tags=["finding-validation", status.lower()],
         )
     except Exception as exc:
         logger.exception("Could not preserve unverified candidate")
@@ -191,9 +203,14 @@ def _preserve_unverified_candidate(
             "success": False,
             "error": "Candidate blocked; note persistence failed: " + str(saved.get("error")),
         }
-    return {"success": True, "action": "preserved_not_reported", "status": status,
-            "reason": reason, "note_id": saved.get("note_id"),
-            "message": "Candidate saved as a note, not filed as a vulnerability."}
+    return {
+        "success": True,
+        "action": "preserved_not_reported",
+        "status": status,
+        "reason": reason,
+        "note_id": saved.get("note_id"),
+        "message": "Candidate saved as a note, not filed as a vulnerability.",
+    }
 
 
 def _validate_ten_questions(answers: dict[str, Any] | None) -> tuple[str | None, str | None]:
@@ -245,17 +262,28 @@ async def _do_create(  # noqa: PLR0911, PLR0912, PLR0915
     agent_name: str | None = None,
 ) -> dict[str, Any]:
     candidate = {
-        "title": title, "description": description, "impact": impact, "target": target,
-        "technical_analysis": technical_analysis, "poc_description": poc_description,
-        "poc_script_code": poc_script_code, "remediation_steps": remediation_steps,
-        "evidence": evidence, "assumptions": assumptions, "cvss_breakdown": cvss_breakdown,
-        "endpoint": endpoint, "method": method, "cwe": cwe,
+        "title": title,
+        "description": description,
+        "impact": impact,
+        "target": target,
+        "technical_analysis": technical_analysis,
+        "poc_description": poc_description,
+        "poc_script_code": poc_script_code,
+        "remediation_steps": remediation_steps,
+        "evidence": evidence,
+        "assumptions": assumptions,
+        "cvss_breakdown": cvss_breakdown,
+        "endpoint": endpoint,
+        "method": method,
+        "cwe": cwe,
     }
     gate_status, gate_reason = _validate_ten_questions(validation_answers)
     if gate_status:
         return _preserve_unverified_candidate(
-            title=title, candidate={**candidate, "validation_answers": validation_answers},
-            status=gate_status, reason=gate_reason or "Validation incomplete.",
+            title=title,
+            candidate={**candidate, "validation_answers": validation_answers},
+            status=gate_status,
+            reason=gate_reason or "Validation incomplete.",
         )
 
     errors: list[str] = []
@@ -314,7 +342,8 @@ async def _do_create(  # noqa: PLR0911, PLR0912, PLR0915
 
     if cvss_score <= 0.0 or severity == "info":
         return _preserve_unverified_candidate(
-            title=title, candidate={**candidate, "cvss_score": cvss_score, "severity": severity},
+            title=title,
+            candidate={**candidate, "cvss_score": cvss_score, "severity": severity},
             status="INFORMATIONAL",
             reason=(
                 "CVSS is 0.0/None; observations without demonstrated security impact "
@@ -1126,11 +1155,16 @@ async def _do_create_dependency(  # noqa: PLR0911, PLR0912, PLR0915
         return _preserve_unverified_candidate(
             title=title,
             candidate={
-                "title": title, "description": description, "target": target,
-                "cve": parsed_cve, "package_name": package_name,
-                "installed_version": installed_version, "advisory_cvss": advisory_cvss,
+                "title": title,
+                "description": description,
+                "target": target,
+                "cve": parsed_cve,
+                "package_name": package_name,
+                "installed_version": installed_version,
+                "advisory_cvss": advisory_cvss,
                 "contextual_cvss_breakdown": contextual_cvss_breakdown,
-                "reachability": reachability, "reachability_evidence": reachability_evidence,
+                "reachability": reachability,
+                "reachability_evidence": reachability_evidence,
             },
             status="INFORMATIONAL",
             reason=(

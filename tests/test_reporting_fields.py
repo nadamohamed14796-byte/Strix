@@ -28,9 +28,15 @@ if TYPE_CHECKING:
 _VALIDATION_ANSWERS = {
     key: {"passed": True, "evidence": f"Verified during controlled assessment: {key}."}
     for key in (
-        "in_scope", "specific_weakness", "attacker_controlled_input",
-        "security_boundary", "baseline_compared", "unauthorized_effect",
-        "impact_observed", "poc_reproducible", "attack_chain_complete",
+        "in_scope",
+        "specific_weakness",
+        "attacker_controlled_input",
+        "security_boundary",
+        "baseline_compared",
+        "unauthorized_effect",
+        "impact_observed",
+        "poc_reproducible",
+        "attack_chain_complete",
         "counterevidence_reviewed",
     )
 }

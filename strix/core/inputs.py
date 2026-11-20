@@ -163,6 +163,7 @@ def build_root_task(scan_config: dict[str, Any]) -> str:
         task = f"{task}\n\nSpecial instructions: {user_instructions}"
     return task
 
+
 def build_scope_context(scan_config: dict[str, Any]) -> dict[str, Any]:
     authorized: list[dict[str, Any]] = []
     target_ledger: list[dict[str, Any]] = []

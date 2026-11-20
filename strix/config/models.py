@@ -406,9 +406,7 @@ async def _with_timeouts(
         except TimeoutError:
             await _aclose(stream)
             message = (
-                f"model stream hit {reason} ({limit:.0f}s)"
-                if limits
-                else "model stream timed out"
+                f"model stream hit {reason} ({limit:.0f}s)" if limits else "model stream timed out"
             )
             logger.warning("%s; abandoning the turn", message)
             raise TimeoutError(message) from None
