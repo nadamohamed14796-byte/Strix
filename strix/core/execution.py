@@ -944,14 +944,6 @@ def _said_to_user(result: RunResultBase | None) -> bool:
     return False
 
 
-def _said_to_user(result: RunResultBase | None) -> bool:
-    """Whether the run produced assistant text for the user."""
-    for item in getattr(result, "new_items", ()) or ():
-        if isinstance(item, MessageOutputItem) and ItemHelpers.text_message_output(item).strip():
-            return True
-    return False
-
-
 async def _append_tool_required_message(
     *,
     session: Session | None,
