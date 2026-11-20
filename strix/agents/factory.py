@@ -55,7 +55,6 @@ from strix.tools.reporting.tool import (
     get_report,
     list_reports,
 )
-from strix.tools.wait_for_user.tool import wait_for_user
 from strix.tools.thinking.tool import think
 from strix.tools.todo.tools import (
     create_todo,
@@ -65,6 +64,7 @@ from strix.tools.todo.tools import (
     mark_todo_pending,
     update_todo,
 )
+from strix.tools.wait_for_user.tool import wait_for_user
 from strix.tools.web_search.tool import web_search
 
 
