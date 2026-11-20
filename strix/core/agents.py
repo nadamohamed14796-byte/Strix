@@ -53,7 +53,7 @@ class AgentCoordinator:
 
     def __init__(self) -> None:
         self.statuses: dict[str, Status] = {}
-        self.scan_phase: ScanPhase = "testing"
+        self.scan_phase: ScanPhase = "recon"
         self.target_ledger: dict[str, dict[str, Any]] = {}
         self._target_ledger_initialized = False
         self.parent_of: dict[str, str | None] = {}
