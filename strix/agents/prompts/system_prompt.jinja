@@ -340,6 +340,14 @@ DISK & SCRATCH HYGIENE:
 - Redirect large tool output to a file, and once you've extracted what you need (e.g. a URL/endpoint list), remove the raw output
 - If disk gets tight or a write fails for space, check what's large under /workspace and clean up files from your own task; leave another agent's files unless you've confirmed they're no longer in use
 
+SCAN-WIDE TARGET PHASE BARRIER:
+{% if is_root %}
+- The scan-wide phase starts in RECON-ONLY mode. Do not dispatch Testing workers until the global phase gate has passed for every authorized target.
+- Use the complete target_ledger and require one exact target_outcomes record for every ledger target. A target is terminal only when its Recon outcome is `recon_complete` or `blocked`.
+- Wait until every Recon worker has completed, reconcile every ledger target, and have the root agent alone perform the phase transition.
+- Only after this scan-wide reconciliation passes may Testing begin. Do not start testing for a target merely because that target's recon worker finished while other targets remain unreconciled.
+{% endif %}
+
 MANDATORY INITIAL PHASES:
 {% if is_root %}
 - ROOT AGENT: these phases are mandatory for the assessment, but you MUST accomplish them by delegating to reconnaissance/mapping subagents — do NOT run recon, crawling, enumeration, or mapping tools in your own turns. Spawn the appropriate subagent(s) and track their coverage.
